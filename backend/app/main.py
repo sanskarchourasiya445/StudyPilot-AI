@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api.routes import auth, chat, health, resources, study
+from backend.app.api.routes import auth, chat, conversations, health, resources, study
 from backend.app.core.config import settings
 from backend.app.core.logging import setup_logging
 from backend.app.db.base import Base
@@ -52,6 +52,7 @@ app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(resources.router, prefix=settings.API_V1_STR)
 app.include_router(chat.router, prefix=settings.API_V1_STR)
 app.include_router(study.router, prefix=settings.API_V1_STR)
+app.include_router(conversations.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/", include_in_schema=False)

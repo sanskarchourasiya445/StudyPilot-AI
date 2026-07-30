@@ -27,13 +27,14 @@ def _get_auth_header(prefix: str) -> dict:
 
 
 def test_ai_capabilities_and_security() -> None:
+    unique_res_id = f"res_{uuid.uuid4().hex[:8]}"
     mock_engine = MagicMock()
     mock_engine.ingest.return_value = IngestionResult(
         source="doc_a.pdf",
         source_type="pdf",
         pages_or_segments=5,
         chunks_created=10,
-        resource_id="res_a_999",
+        resource_id=unique_res_id,
     )
     doc_chunk = Document(page_content="Sample content text.", metadata={"source": "doc_a.pdf"})
     mock_engine.ask.return_value = ChatResult(
