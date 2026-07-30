@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.api.middleware import setup_exception_handlers
 from backend.app.api.routes import auth, chat, conversations, health, resources, study
 from backend.app.core.config import settings
 from backend.app.core.logging import setup_logging
@@ -35,6 +36,9 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+# Register Exception Handlers
+setup_exception_handlers(app)
 
 # Set up CORS
 if settings.BACKEND_CORS_ORIGINS:
