@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api.routes import health
+from backend.app.api.routes import auth, health
 from backend.app.core.config import settings
 from backend.app.core.logging import setup_logging
 from backend.app.db.base import Base
@@ -48,6 +48,7 @@ if settings.BACKEND_CORS_ORIGINS:
 
 # Include Routers
 app.include_router(health.router, prefix=settings.API_V1_STR)
+app.include_router(auth.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/", include_in_schema=False)
