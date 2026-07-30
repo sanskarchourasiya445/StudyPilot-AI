@@ -1,0 +1,1 @@
+StudyPilot AI Engine is an advanced RAG framework designed for educational material indexing, retrieval, summarization, study notes generation, and multiple-choice quiz creation.

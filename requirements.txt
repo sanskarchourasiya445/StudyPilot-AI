@@ -1,0 +1,42 @@
+# ── StudyPilot AI Engine — requirements.txt ───────────────────────────────────
+# Python >= 3.10 recommended
+
+# ── Core orchestration (LangChain) ────────────────────────────────────────────
+langchain-core>=0.2.0
+langchain-community>=0.2.0
+langchain-text-splitters>=0.2.0
+langchain-chroma>=0.1.2
+langchain-huggingface>=0.0.3
+
+# ── PDF loading ────────────────────────────────────────────────────────────────
+pypdf>=4.2.0
+
+# ── YouTube: captions + metadata + audio fallback ─────────────────────────────
+# youtube-transcript-api v1.x has a breaking, instance-based API compared
+# to v0.6.x (see ai_engine/youtube/extractor.py) - pinned to >=1.0.0 so a
+# fresh install never silently reverts to the incompatible old shape.
+youtube-transcript-api>=1.0.0
+yt-dlp>=2024.4.9
+pydub>=0.25.1
+
+# ── Local Whisper transcription (fallback only) ───────────────────────────────
+openai-whisper>=20231117
+torch>=2.2.0
+
+# ── Embeddings (local, free) ───────────────────────────────────────────────────
+sentence-transformers>=3.0.0
+huggingface-hub>=0.23.0
+
+# ── Vector store ───────────────────────────────────────────────────────────────
+chromadb>=0.5.0
+
+# ── LLM (Gemini) ───────────────────────────────────────────────────────────────
+# google-generativeai is deprecated (no further updates/bug fixes) -
+# migrated to the unified google-genai SDK in v1.1.1.
+google-genai>=1.0.0
+
+# ── Utilities ──────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Testing ────────────────────────────────────────────────────────────────────
+pytest>=8.0.0
