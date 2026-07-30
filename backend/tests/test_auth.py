@@ -1,3 +1,4 @@
+import uuid
 import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
@@ -6,7 +7,8 @@ client = TestClient(app)
 
 
 def test_auth_full_flow() -> None:
-    test_email = "student_test_1@example.com"
+    unique_id = uuid.uuid4().hex[:8]
+    test_email = f"student_{unique_id}@example.com"
     test_password = "secure_password_123"
     test_name = "Alice Student"
 
