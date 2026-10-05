@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.api.middleware import setup_exception_handlers
-from backend.app.api.routes import auth, chat, conversations, health, resources, study
+from backend.app.api.routes import auth, chat, conversations, health, mastery, resources, revision, study
 from backend.app.core.config import settings
 from backend.app.core.logging import setup_logging
 from backend.app.db.base import Base
@@ -13,15 +13,23 @@ from backend.app.db.session import engine
 logger = logging.getLogger(__name__)
 
 
+def ensure_db_schema():
+    """Ensure database tables exist for development and test execution."""
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        logger.warning(f"Database schema initialization warning: {e}")
+
+
+# Ensure schema is verified upon module import
+ensure_db_schema()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup actions
     setup_logging()
     logger.info("Starting StudyPilot API backend...")
-    
-    # Ensure database tables exist (Phase 1 local setup / fallback)
-    Base.metadata.create_all(bind=engine)
-    
+    ensure_db_schema()
     yield
     
     # Shutdown actions
@@ -42,9 +50,10 @@ setup_exception_handlers(app)
 
 # Set up CORS
 if settings.BACKEND_CORS_ORIGINS:
+    origins = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -57,6 +66,8 @@ app.include_router(resources.router, prefix=settings.API_V1_STR)
 app.include_router(chat.router, prefix=settings.API_V1_STR)
 app.include_router(study.router, prefix=settings.API_V1_STR)
 app.include_router(conversations.router, prefix=settings.API_V1_STR)
+app.include_router(mastery.router, prefix=settings.API_V1_STR)
+app.include_router(revision.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/", include_in_schema=False)

@@ -40,7 +40,7 @@ dict as before - this is purely additive.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from langchain_chroma import Chroma
 from langchain_core.vectorstores import VectorStoreRetriever
@@ -63,6 +63,7 @@ def build_retriever(
     lambda_mult: float = LAMBDA_MULT,
     source_filter: Optional[str] = None,
     resource_id: Optional[str] = None,
+    resource_ids: Optional[List[str]] = None,
     workspace_id: Optional[str] = None,
     user_id: Optional[str] = None,
 ) -> VectorStoreRetriever:
@@ -81,6 +82,8 @@ def build_retriever(
         specific ingested resource - preferred over `source_filter`
         where available, since it cannot collide across resources that
         happen to share a name.
+        resource_ids: (v1.1) if given, restrict retrieval to a list of
+        resource IDs.
         workspace_id: (v1.1) if given, restrict retrieval to one
         workspace.
         user_id: (v1.1) if given, restrict retrieval to one user's
@@ -101,6 +104,7 @@ def build_retriever(
     metadata_filter = build_metadata_filter(
         source=source_filter,
         resource_id=resource_id,
+        resource_ids=resource_ids,
         workspace_id=workspace_id,
         user_id=user_id,
     )

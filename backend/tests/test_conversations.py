@@ -28,10 +28,11 @@ def _get_auth_header(prefix: str) -> dict:
 def test_conversations_persistence_and_security() -> None:
     mock_engine = MagicMock()
     doc_chunk = Document(page_content="Sample grounding text.", metadata={"source": "lecture.pdf"})
-    mock_engine.ask.return_value = ChatResult(
+    mock_engine.chat.return_value = ChatResult(
         answer="Grounded answer from AI engine.",
         sources=[doc_chunk],
     )
+    mock_engine.ask.return_value = mock_engine.chat.return_value
     set_ai_engine(mock_engine)
 
     try:

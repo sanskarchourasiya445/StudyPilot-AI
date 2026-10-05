@@ -37,10 +37,11 @@ def test_ai_capabilities_and_security() -> None:
         resource_id=unique_res_id,
     )
     doc_chunk = Document(page_content="Sample content text.", metadata={"source": "doc_a.pdf"})
-    mock_engine.ask.return_value = ChatResult(
+    mock_engine.chat.return_value = ChatResult(
         answer="StudyPilot is a personalized AI study platform.",
         sources=[doc_chunk],
     )
+    mock_engine.ask.return_value = mock_engine.chat.return_value
     mock_engine.search.return_value = [doc_chunk]
     mock_engine.summarize.return_value = "StudyPilot AI Engine overview summary."
     mock_engine.generate_notes.return_value = "- Key bullet point note."
@@ -130,6 +131,22 @@ def test_ai_capabilities_and_security() -> None:
         quiz_data = res_quiz.json()
         assert len(quiz_data["questions"]) == 1
         assert quiz_data["questions"][0]["question"] == "What is StudyPilot?"
+
+        # 10. Cross-user DELETE attempt (User B) -> 404 Not Found (Unauthorized deletion blocked)
+        res_del_cross = client.delete(f"/api/resources/{res_id}/summary", headers=headers_b)
+        assert res_del_cross.status_code == 404
+
+        # 11. Delete Summary (User A) -> 200 OK
+        res_del_sum = client.delete(f"/api/resources/{res_id}/summary", headers=headers_a)
+        assert res_del_sum.status_code == 200
+
+        # 12. Delete Notes (User A) -> 200 OK
+        res_del_notes = client.delete(f"/api/resources/{res_id}/notes", headers=headers_a)
+        assert res_del_notes.status_code == 200
+
+        # 13. Delete Quizzes (User A) -> 200 OK
+        res_del_quiz = client.delete(f"/api/resources/{res_id}/quizzes", headers=headers_a)
+        assert res_del_quiz.status_code == 200
 
     finally:
         reset_ai_engine()

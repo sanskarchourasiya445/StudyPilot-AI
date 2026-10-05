@@ -137,6 +137,24 @@ class GeminiLLM:
                     config=types.GenerateContentConfig(temperature=temperature),
                 )
             except genai_errors.APIError as exc:
+                groq_resp = self._try_groq_fallback(prompt, temperature)
+                if groq_resp is not None:
+                    return groq_resp
+
+                if exc.code == 401 or "UNAUTHENTICATED" in str(exc).upper():
+                    logger.error("Gemini authentication failed: %s", exc)
+                    raise LLMGenerationError(
+                        "Invalid or unauthorized GEMINI_API_KEY in .env. "
+                        "Please configure a valid API key from Google AI Studio (https://aistudio.google.com/)."
+                    ) from exc
+
+                if exc.code == 404 or "NOT_FOUND" in str(exc).upper():
+                    logger.error("Gemini model not found (%s): %s", self.model_name, exc)
+                    raise LLMGenerationError(
+                        f"Configured Gemini model '{self.model_name}' was not found. "
+                        "Please check GEMINI_MODEL in your configuration (e.g. 'gemini-1.5-flash')."
+                    ) from exc
+
                 is_retryable = exc.code in GEMINI_RETRYABLE_STATUS_CODES
                 attempts_remaining = attempt < GEMINI_MAX_RETRIES
                 if not (is_retryable and attempts_remaining):
@@ -152,6 +170,8 @@ class GeminiLLM:
                     ) from exc
 
                 delay = GEMINI_RETRY_BASE_DELAY_SECONDS * (2 ** (attempt - 1))
+                if exc.code == 429:
+                    delay = max(delay, 4.0 * attempt)
                 logger.warning(
                     "Gemini returned a transient error (HTTP %s) - retrying in "
                     "%.1fs (attempt %d/%d)...",
@@ -161,12 +181,10 @@ class GeminiLLM:
                     GEMINI_MAX_RETRIES,
                 )
                 time.sleep(delay)
-            except Exception as exc:  # noqa: BLE001 - anything not raised
-                # as a structured APIError (network-level failure before
-                # a response was even received, SDK bugs, etc.) is not
-                # retried - we can't confidently classify it as
-                # transient, so fail fast rather than silently retrying
-                # something that will never succeed.
+            except Exception as exc:
+                groq_resp = self._try_groq_fallback(prompt, temperature)
+                if groq_resp is not None:
+                    return groq_resp
                 logger.error("Gemini generation failed: %s", exc)
                 raise LLMGenerationError(f"Gemini generation failed: {exc}") from exc
 
@@ -184,3 +202,39 @@ class GeminiLLM:
             raise LLMGenerationError("Gemini returned an empty response.")
 
         return text.strip()
+
+    def _try_groq_fallback(self, prompt: str, temperature: float) -> Optional[str]:
+        """Resilient fallback to Groq when Gemini credentials are unauthenticated."""
+        groq_key = os.getenv("GROQ_API_KEY")
+        if not groq_key:
+            return None
+        try:
+            import requests
+            headers = {
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json",
+            }
+            groq_model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+            payload = {
+                "model": groq_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": temperature,
+            }
+            logger.info("Attempting resilient LLM generation via Groq fallback (%s)...", groq_model)
+            res = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=45,
+            )
+            res.encoding = "utf-8"
+            if res.status_code == 200:
+                data = res.json()
+                content = data["choices"][0]["message"]["content"]
+                logger.info("Successfully completed LLM generation using Groq fallback.")
+                return content.strip()
+            else:
+                logger.warning("Groq fallback HTTP %d: %s", res.status_code, res.text)
+        except Exception as exc:
+            logger.warning("Groq fallback generation error: %s", exc)
+        return None

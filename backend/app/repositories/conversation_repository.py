@@ -12,12 +12,17 @@ class ConversationRepository:
         user_id: str,
         title: Optional[str] = None,
         resource_id: Optional[str] = None,
+        scope_mode: str = "all",
+        resource_ids: Optional[List[str]] = None,
     ) -> Conversation:
         conv = Conversation(
             user_id=user_id,
             resource_id=resource_id,
+            scope_mode=scope_mode,
             title=title.strip() if title else "New Conversation",
         )
+        if resource_ids:
+            conv.resource_ids = resource_ids
         db.add(conv)
         db.commit()
         db.refresh(conv)

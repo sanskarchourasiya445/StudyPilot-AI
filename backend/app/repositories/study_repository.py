@@ -90,3 +90,39 @@ class StudyRepository:
         db.commit()
         db.refresh(rec)
         return rec
+
+    @staticmethod
+    def delete_summary(db: Session, resource_id: str) -> bool:
+        summaries = db.query(Summary).filter(Summary.resource_id == resource_id).all()
+        if not summaries:
+            return False
+        for s in summaries:
+            db.delete(s)
+        db.commit()
+        return True
+
+    @staticmethod
+    def delete_notes(db: Session, resource_id: str, style: Optional[str] = None) -> bool:
+        query = db.query(Notes).filter(Notes.resource_id == resource_id)
+        if style:
+            query = query.filter(Notes.style == style)
+        notes = query.all()
+        if not notes:
+            return False
+        for n in notes:
+            db.delete(n)
+        db.commit()
+        return True
+
+    @staticmethod
+    def delete_quizzes(db: Session, resource_id: str, quiz_id: Optional[str] = None) -> bool:
+        query = db.query(Quiz).filter(Quiz.resource_id == resource_id)
+        if quiz_id:
+            query = query.filter(Quiz.id == quiz_id)
+        quizzes = query.all()
+        if not quizzes:
+            return False
+        for q in quizzes:
+            db.delete(q)
+        db.commit()
+        return True

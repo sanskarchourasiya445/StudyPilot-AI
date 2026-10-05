@@ -37,7 +37,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_resources_id'), 'resources', ['id'], unique=False)
-    op.create_index(op.f('ix_resources_resource_id'), 'resources', ['resource_id'], unique=False)
+    op.create_index(op.f('ix_resources_resource_id'), 'resources', ['resource_id'], unique=True)
     op.create_index(op.f('ix_resources_user_id'), 'resources', ['user_id'], unique=False)
     # ### end Alembic commands ###
 

@@ -18,6 +18,7 @@ cost of one extra LLM call per chunk.
 from __future__ import annotations
 
 import logging
+import time
 from typing import List
 
 from langchain_core.documents import Document
@@ -57,6 +58,8 @@ class SummaryService:
 
         chunk_summaries: List[str] = []
         for i, chunk in enumerate(summary_chunks, start=1):
+            if i > 1:
+                time.sleep(1.2)  # Pace calls to respect API rate limits
             logger.info("Map step %d/%d...", i, len(summary_chunks))
             prompt = build_summary_map_prompt(chunk.page_content)
             try:

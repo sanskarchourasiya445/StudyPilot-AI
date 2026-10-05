@@ -187,6 +187,7 @@ def list_ingested_sources(vector_store: Chroma) -> List[str]:
 def build_metadata_filter(
     source: Optional[str] = None,
     resource_id: Optional[str] = None,
+    resource_ids: Optional[List[str]] = None,
     workspace_id: Optional[str] = None,
     user_id: Optional[str] = None,
 ) -> Optional[dict]:
@@ -205,7 +206,12 @@ def build_metadata_filter(
     clauses = []
     if source:
         clauses.append({"source": source})
-    if resource_id:
+    if resource_ids:
+        if len(resource_ids) == 1:
+            clauses.append({"resource_id": resource_ids[0]})
+        elif len(resource_ids) > 1:
+            clauses.append({"resource_id": {"$in": resource_ids}})
+    elif resource_id:
         clauses.append({"resource_id": resource_id})
     if workspace_id:
         clauses.append({"workspace_id": workspace_id})

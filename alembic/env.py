@@ -18,8 +18,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set database URL from Pydantic settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Set database URL from Pydantic settings (escaping % for ConfigParser)
+db_url_escaped = settings.DATABASE_URL.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", db_url_escaped)
 
 target_metadata = Base.metadata
 

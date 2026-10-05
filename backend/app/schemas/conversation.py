@@ -7,7 +7,9 @@ from backend.app.schemas.chat import SourceCitation
 
 class ConversationCreate(BaseModel):
     title: Optional[str] = Field(None, description="Conversation title")
-    resource_id: Optional[str] = Field(None, description="Optional resource_id scope")
+    resource_id: Optional[str] = Field(None, description="Legacy resource_id scope")
+    scope_mode: Optional[str] = Field("all", description="Scope mode: 'all' or 'selected'")
+    resource_ids: Optional[List[str]] = Field(default_factory=list, description="Resource IDs when mode='selected'")
 
 
 class MessageRead(BaseModel):
@@ -37,6 +39,8 @@ class ConversationRead(BaseModel):
     id: str
     user_id: str
     resource_id: Optional[str] = None
+    scope_mode: str = "all"
+    resource_ids: List[str] = Field(default_factory=list)
     title: str
     message_count: int = 0
     created_at: datetime

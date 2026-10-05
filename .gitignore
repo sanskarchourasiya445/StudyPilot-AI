@@ -1,8 +1,11 @@
 # Virtual environments
 venv/
+.venv/
 
 # Environment variables
 .env
+.env.local
+.env.*.local
 
 # Python cache
 __pycache__/
@@ -14,20 +17,34 @@ __pycache__/
 dist/
 build/
 
-# Data and documents
+# Data, documents, and uploads
 data/
 documents/
+uploads/
 
-# VS Code
+# Local Databases & SQLite
+*.db
+*.sqlite
+*.sqlite3
+studypilot.db
+
+# IDE and AI Tool Metadata
 .vscode/
+.idea/
+.agent/
+.kilo/
+scratch/
 
-# Pytest
+# Node / Frontend dependencies & logs
+node_modules/
+*.log
+
+# Pytest & Coverage
 .pytest_cache/
-
-# Coverage
 .coverage
 htmlcov/
+.early.coverage
 
 # OS
 .DS_Store
-.early.coverage
+Thumbs.db

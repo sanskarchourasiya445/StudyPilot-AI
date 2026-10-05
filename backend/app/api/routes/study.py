@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -43,18 +43,34 @@ def search_resource(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
-@router.post(
-    "/{resource_id}/summary",
-    response_model=SummaryResponse,
-    summary="Generate or fetch summary for a resource",
-    description="Returns backend-cached or newly map-reduced summary for a resource.",
-)
 @router.get(
     "/{resource_id}/summary",
     response_model=SummaryResponse,
-    summary="Get summary for a resource",
+    summary="Get cached summary for a resource",
 )
-def get_summary(
+def get_existing_summary(
+    resource_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SummaryResponse:
+    try:
+        summary = study_service.get_existing_summary(db, current_user, resource_id)
+        if not summary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No cached summary found for this resource.",
+            )
+        return summary
+    except ResourceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{resource_id}/summary",
+    response_model=SummaryResponse,
+    summary="Generate or regenerate summary for a resource",
+)
+def generate_summary(
     resource_id: str,
     request: Optional[SummaryRequest] = None,
     db: Session = Depends(get_db),
@@ -173,5 +189,84 @@ def list_quizzes(
 ) -> List[QuizResponse]:
     try:
         return study_service.list_quizzes(db, current_user, resource_id)
+    except ResourceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post(
+    "/quizzes/{quiz_id}/submit",
+    summary="Submit quiz attempt and update mastery",
+    description="Submits a completed quiz score, records attempt history, and updates topic mastery.",
+)
+def submit_quiz_attempt(
+    quiz_id: str,
+    request: Any = Depends(lambda: None),
+    score: int = Query(..., ge=0),
+    total_questions: int = Query(..., gt=0),
+    topic_override: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return study_service.submit_quiz_attempt(
+            db, current_user, quiz_id, score=score, total_questions=total_questions, topic_override=topic_override
+        )
+    except ResourceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/{resource_id}/summary",
+    summary="Delete summary for a resource",
+)
+def delete_summary(
+    resource_id: str,
+    db: Session = Depends(get_db),
+    engine: AIEngine = Depends(get_engine),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        deleted = study_service.delete_summary(db, engine, current_user, resource_id)
+        if not deleted:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No summary found to delete.")
+        return {"message": "Summary deleted successfully."}
+    except ResourceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/{resource_id}/notes",
+    summary="Delete study notes for a resource",
+)
+def delete_notes(
+    resource_id: str,
+    style: Optional[str] = Query(None, description="Optional style filter: 'bullet' or 'cornell'"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        deleted = study_service.delete_notes(db, current_user, resource_id, style=style)
+        if not deleted:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No notes found to delete.")
+        return {"message": "Study notes deleted successfully."}
+    except ResourceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/{resource_id}/quizzes",
+    summary="Delete quizzes for a resource",
+)
+def delete_quizzes(
+    resource_id: str,
+    quiz_id: Optional[str] = Query(None, description="Optional specific quiz_id to delete"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        deleted = study_service.delete_quizzes(db, current_user, resource_id, quiz_id=quiz_id)
+        if not deleted:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No quizzes found to delete.")
+        return {"message": "Quizzes deleted successfully."}
     except ResourceNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

@@ -28,7 +28,7 @@ is reserved for the case where NONE of the question is covered.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from langchain_core.documents import Document
 
@@ -51,7 +51,7 @@ RULES:
 CONTEXT:
 {context}
 
-QUESTION:
+{chat_history}QUESTION:
 {question}
 
 ANSWER:
@@ -72,12 +72,31 @@ def _format_context(documents: List[Document]) -> str:
     return "\n\n".join(blocks)
 
 
-def build_rag_prompt(question: str, documents: List[Document]) -> str:
+def _format_history(history: Optional[List[dict]]) -> str:
+    """Format recent conversation turns if present."""
+    if not history:
+        return ""
+    lines = ["RECENT CONVERSATION HISTORY:"]
+    for turn in history:
+        role = turn.get("role", "user").capitalize()
+        content = turn.get("content", "").strip()
+        if content:
+            lines.append(f"{role}: {content}")
+    return "\n".join(lines) + "\n\n"
+
+
+def build_rag_prompt(
+    question: str,
+    documents: List[Document],
+    history: Optional[List[dict]] = None,
+) -> str:
     """Build the final chat prompt sent to the LLM."""
     context = _format_context(documents) if documents else "(no relevant context retrieved)"
+    chat_history = _format_history(history)
     return _RAG_PROMPT_TEMPLATE.format(
         no_answer_message=NO_ANSWER_MESSAGE,
         context=context,
+        chat_history=chat_history,
         question=question,
     )
 
@@ -178,9 +197,9 @@ def build_notes_prompt(text: str, style: str = "bullet") -> str:
 # ("easy"/"medium"/"hard" mean nothing consistent to a model without a
 # definition - it will guess, and guess differently per subject).
 _QUIZ_DIFFICULTY_DEFINITIONS = {
-    "easy": "the answer is direct recall - it is stated explicitly in the material and requires no inference.",
-    "medium": "answering requires connecting two or more distinct facts from the material.",
-    "hard": "answering requires applying a concept from the material to a new scenario or example not stated verbatim in the text.",
+    "easy": "Basic recall, definitions, fundamental concepts, and straightforward questions stated explicitly in the material requiring no complex inference.",
+    "medium": "Conceptual understanding, application of concepts, moderate reasoning, and comparison questions connecting distinct facts from the material.",
+    "hard": "Deeper reasoning, multi-concept synthesis, scenario-based questions, and challenging application of concepts to new examples.",
 }
 
 _QUIZ_PROMPT_TEMPLATE = """Based ONLY on the study material below, write exactly {question_count} multiple-choice quiz questions at {difficulty} difficulty.

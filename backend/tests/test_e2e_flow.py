@@ -26,10 +26,11 @@ def test_full_student_journey_e2e() -> None:
         page_content="Quantum entanglement is a phenomenon in quantum mechanics...",
         metadata={"source": "quantum_physics.pdf"},
     )
-    mock_engine.ask.return_value = ChatResult(
+    mock_engine.chat.return_value = ChatResult(
         answer="Quantum entanglement connects quantum states instantly across distance.",
         sources=[doc_chunk],
     )
+    mock_engine.ask.return_value = mock_engine.chat.return_value
     mock_engine.search.return_value = [doc_chunk]
     mock_engine.summarize.return_value = "Comprehensive summary of Quantum Mechanics chapter."
     mock_engine.generate_notes.return_value = "- Superposition\n- Entanglement\n- Wave-particle duality"

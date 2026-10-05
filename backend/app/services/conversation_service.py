@@ -20,12 +20,19 @@ class ConversationService:
         self, db: Session, user: User, request: ConversationCreate
     ) -> ConversationRead:
         conv = self._conv_repo.create_conversation(
-            db, user_id=user.id, title=request.title, resource_id=request.resource_id
+            db,
+            user_id=user.id,
+            title=request.title,
+            resource_id=request.resource_id,
+            scope_mode=request.scope_mode or "all",
+            resource_ids=request.resource_ids or [],
         )
         return ConversationRead(
             id=conv.id,
             user_id=conv.user_id,
             resource_id=conv.resource_id,
+            scope_mode=conv.scope_mode,
+            resource_ids=conv.resource_ids,
             title=conv.title,
             message_count=0,
             created_at=conv.created_at,
@@ -44,6 +51,8 @@ class ConversationService:
                     id=c.id,
                     user_id=c.user_id,
                     resource_id=c.resource_id,
+                    scope_mode=c.scope_mode,
+                    resource_ids=c.resource_ids,
                     title=c.title,
                     message_count=msg_cnt,
                     created_at=c.created_at,
@@ -70,6 +79,8 @@ class ConversationService:
             id=conv.id,
             user_id=conv.user_id,
             resource_id=conv.resource_id,
+            scope_mode=conv.scope_mode,
+            resource_ids=conv.resource_ids,
             title=conv.title,
             message_count=len(conv.messages),
             created_at=conv.created_at,

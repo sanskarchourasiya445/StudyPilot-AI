@@ -126,7 +126,7 @@ NO_ANSWER_MESSAGE = "I could not find this information in the provided content."
 # map-reduce summarizer. Larger than the retrieval CHUNK_SIZE above
 # because summarization wants broader context per LLM call, not
 # retrieval-optimized granularity.
-SUMMARY_MAP_CHUNK_SIZE = 30000
+SUMMARY_MAP_CHUNK_SIZE = 20000
 SUMMARY_MAP_CHUNK_OVERLAP = 1000
 SUMMARY_CACHE_VERSION = "1.0"
 
@@ -160,6 +160,6 @@ LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 # against without hardcoding the string itself.
 ENGINE_VERSION = "1.1.0"
 
-GEMINI_MAX_RETRIES = 3
-GEMINI_RETRY_BASE_DELAY_SECONDS = 2.0
+GEMINI_MAX_RETRIES = 5
+GEMINI_RETRY_BASE_DELAY_SECONDS = 3.0
 GEMINI_RETRYABLE_STATUS_CODES = (429, 500, 502, 503, 504)

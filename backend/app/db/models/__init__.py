@@ -5,6 +5,8 @@ from backend.app.db.models.notes import Notes
 from backend.app.db.models.quiz import Quiz
 from backend.app.db.models.conversation import Conversation
 from backend.app.db.models.message import Message
+from backend.app.db.models.quiz_attempt import QuizAttempt
+from backend.app.db.models.mastery import MasteryRecord
 
 __all__ = [
     "User",
@@ -14,4 +16,6 @@ __all__ = [
     "Quiz",
     "Conversation",
     "Message",
+    "QuizAttempt",
+    "MasteryRecord",
 ]

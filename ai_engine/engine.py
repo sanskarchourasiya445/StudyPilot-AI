@@ -303,8 +303,10 @@ class AIEngine:
         question: str,
         source_filter: Optional[str] = None,
         resource_id: Optional[str] = None,
+        resource_ids: Optional[List[str]] = None,
         workspace_id: Optional[str] = None,
         user_id: Optional[str] = None,
+        history: Optional[List[dict]] = None,
     ) -> ChatResult:
         """Answer a question, optionally scoped to one ingested source.
 
@@ -314,10 +316,13 @@ class AIEngine:
             this one ingested `source` (see `vectorstore.retriever`).
             resource_id: (v1.1) if given, restrict retrieval to one
             specific ingested resource.
+            resource_ids: (v1.1) if given, restrict retrieval to multiple
+            specific ingested resources.
             workspace_id: (v1.1) if given, restrict retrieval to one
             workspace.
             user_id: (v1.1) if given, restrict retrieval to one user's
             resources.
+            history: (v1.1) optional recent conversation history turns.
             Any combination of the above may be given together; existing
             callers passing only `source_filter` (or nothing) behave
             exactly as in v1.0.
@@ -330,15 +335,19 @@ class AIEngine:
             self._vector_store,
             source_filter=source_filter,
             resource_id=resource_id,
+            resource_ids=resource_ids,
             workspace_id=workspace_id,
             user_id=user_id,
         )
         chat_service = ChatService(retriever=retriever, llm=self._llm)
 
         try:
-            return chat_service.ask(question)
+            return chat_service.ask(question, history=history)
         except ChatServiceError as exc:
             raise EngineError(f"Chat failed: {exc}") from exc
+
+    # Backward compatibility alias
+    ask = chat
 
     def search(
         self,
@@ -348,6 +357,7 @@ class AIEngine:
         lambda_mult: float = LAMBDA_MULT,
         source_filter: Optional[str] = None,
         resource_id: Optional[str] = None,
+        resource_ids: Optional[List[str]] = None,
         workspace_id: Optional[str] = None,
         user_id: Optional[str] = None,
     ) -> List[Document]:
@@ -364,7 +374,7 @@ class AIEngine:
             query: free-text search query.
             top_k / fetch_k / lambda_mult: MMR retrieval tuning (see
             `vectorstore.retriever.build_retriever`).
-            source_filter / resource_id / workspace_id / user_id: same
+            source_filter / resource_id / resource_ids / workspace_id / user_id: same
             optional scoping as `chat()`.
 
         Raises:
@@ -381,6 +391,7 @@ class AIEngine:
                 lambda_mult=lambda_mult,
                 source_filter=source_filter,
                 resource_id=resource_id,
+                resource_ids=resource_ids,
                 workspace_id=workspace_id,
                 user_id=user_id,
             )

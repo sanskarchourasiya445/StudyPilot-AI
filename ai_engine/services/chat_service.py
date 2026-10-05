@@ -62,7 +62,7 @@ class ChatService:
         self._retriever = retriever
         self._llm = llm
 
-    def ask(self, question: str) -> ChatResult:
+    def ask(self, question: str, history: Optional[List[dict]] = None) -> ChatResult:
         """Answer one question.
 
         Args:
@@ -70,6 +70,7 @@ class ChatService:
             construction time already encodes any `source_filter` -
             see `vectorstore.retriever.build_retriever` - so this method
             doesn't need its own filtering parameter.
+            history: optional recent conversation history turns.
 
         Raises:
             ChatServiceError: if retrieval or generation fails for a
@@ -89,7 +90,7 @@ class ChatService:
             logger.warning("No documents retrieved for question: %r", question)
             return ChatResult(answer=NO_ANSWER_MESSAGE, sources=[], was_grounded=False)
 
-        prompt = build_rag_prompt(question=question, documents=documents)
+        prompt = build_rag_prompt(question=question, documents=documents, history=history)
 
         try:
             answer = self._llm.generate(prompt)

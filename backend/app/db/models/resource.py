@@ -21,7 +21,7 @@ class Resource(Base):
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     resource_id: Mapped[str] = mapped_column(
-        String(255), nullable=False, index=True
+        String(255), nullable=False, unique=True, index=True
     )
     source: Mapped[str] = mapped_column(Text, nullable=False)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # "pdf", "txt", "youtube"

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # Database
-    DATABASE_URL: str = "sqlite:///./studypilot.db"
+    DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/studypilot"
 
     # JWT Authentication
     JWT_SECRET: str = "studypilot_dev_secret_key_change_in_production_32chars"
@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
     # AI Engine
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
 
     model_config = SettingsConfigDict(
         env_file=".env",

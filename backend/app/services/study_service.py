@@ -14,6 +14,11 @@ from backend.app.schemas.study import (
     SearchResponse,
     SummaryResponse,
 )
+from backend.app.schemas.mastery import (
+    QuizAttemptResponse,
+    MasteryRecordResponse,
+    KnowledgeGapResponse,
+)
 from backend.app.services.resource_service import ResourceNotFoundError
 
 
@@ -71,6 +76,27 @@ class StudyService:
             )
 
         return SearchResponse(results=results_list)
+
+    def get_existing_summary(
+        self, db: Session, user: User, resource_identifier: str
+    ) -> Optional[SummaryResponse]:
+        resource = self._resource_repo.get_by_user(db, user.id, resource_identifier)
+        if not resource:
+            raise ResourceNotFoundError(
+                f"Resource '{resource_identifier}' not found or not owned by user."
+            )
+        db_summary = self._study_repo.get_summary(db, resource.resource_id)
+        if not db_summary:
+            return None
+        return SummaryResponse(
+            id=db_summary.id,
+            resource_id=resource.resource_id,
+            summary=db_summary.summary,
+            version=db_summary.version,
+            config_hash=db_summary.config_hash,
+            cached=True,
+            created_at=db_summary.created_at,
+        )
 
     def get_summary(
         self,
@@ -246,3 +272,210 @@ class StudyService:
                 )
             )
         return result
+
+    def delete_summary(
+        self, db: Session, engine: AIEngine, user: User, resource_identifier: str
+    ) -> bool:
+        resource = self._resource_repo.get_by_user(db, user.id, resource_identifier)
+        if not resource:
+            raise ResourceNotFoundError(
+                f"Resource '{resource_identifier}' not found or not owned by user."
+            )
+        if hasattr(engine, "_summary_cache"):
+            engine._summary_cache.invalidate(resource.resource_id)
+        return self._study_repo.delete_summary(db, resource.resource_id)
+
+    def delete_notes(
+        self, db: Session, user: User, resource_identifier: str, style: Optional[str] = None
+    ) -> bool:
+        resource = self._resource_repo.get_by_user(db, user.id, resource_identifier)
+        if not resource:
+            raise ResourceNotFoundError(
+                f"Resource '{resource_identifier}' not found or not owned by user."
+            )
+        return self._study_repo.delete_notes(db, resource.resource_id, style=style)
+
+    def delete_quizzes(
+        self, db: Session, user: User, resource_identifier: str, quiz_id: Optional[str] = None
+    ) -> bool:
+        resource = self._resource_repo.get_by_user(db, user.id, resource_identifier)
+        if not resource:
+            raise ResourceNotFoundError(
+                f"Resource '{resource_identifier}' not found or not owned by user."
+            )
+        return self._study_repo.delete_quizzes(db, resource.resource_id, quiz_id=quiz_id)
+
+    def submit_quiz_attempt(
+        self,
+        db: Session,
+        user: User,
+        quiz_id: str,
+        score: int,
+        total_questions: int,
+        topic_override: Optional[str] = None,
+    ) -> QuizAttemptResponse:
+        from datetime import datetime, timezone
+        from backend.app.db.models.quiz import Quiz
+        from backend.app.db.models.resource import Resource
+        from backend.app.db.models.quiz_attempt import QuizAttempt
+        from backend.app.db.models.mastery import MasteryRecord
+        from backend.app.schemas.mastery import QuizAttemptResponse
+
+        quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+        if not quiz:
+            raise ResourceNotFoundError(f"Quiz '{quiz_id}' not found.")
+
+        resource = (
+            db.query(Resource)
+            .filter(Resource.resource_id == quiz.resource_id, Resource.user_id == user.id)
+            .first()
+        )
+        if not resource:
+            raise ResourceNotFoundError(f"Resource for quiz '{quiz_id}' not found or not owned by user.")
+
+        # Determine Topic Name
+        if topic_override and topic_override.strip():
+            topic = topic_override.strip()
+        else:
+            raw_name = resource.title or resource.source.split("/")[-1].split("\\")[-1]
+            if raw_name.lower().endswith(".pdf"):
+                raw_name = raw_name[:-4]
+            topic = raw_name.strip() or "General Study"
+
+        total_q = max(1, total_questions)
+        score_val = max(0, min(score, total_q))
+        percentage = round((score_val / total_q) * 100.0, 1)
+
+        # 1. Save QuizAttempt
+        attempt = QuizAttempt(
+            user_id=user.id,
+            quiz_id=quiz.id,
+            resource_id=resource.resource_id,
+            topic=topic,
+            score=score_val,
+            total_questions=total_q,
+            percentage=percentage,
+            attempted_at=datetime.now(timezone.utc),
+        )
+        db.add(attempt)
+
+        # 2. Find or create MasteryRecord for (user_id, topic)
+        mastery = (
+            db.query(MasteryRecord)
+            .filter(MasteryRecord.user_id == user.id, MasteryRecord.topic == topic)
+            .first()
+        )
+
+        from backend.app.services.revision_service import calculate_next_review_at, get_review_interval
+
+        now = datetime.now(timezone.utc)
+
+        if not mastery:
+            new_score = int(round(percentage))
+            mastery = MasteryRecord(
+                user_id=user.id,
+                topic=topic,
+                mastery_score=max(0, min(100, new_score)),
+                total_questions=total_q,
+                correct_answers=score_val,
+                total_attempts=1,
+                last_attempt_at=now,
+            )
+            db.add(mastery)
+        else:
+            # Weighted average formula: 60% historical + 40% latest quiz
+            updated_score = int(round(0.6 * mastery.mastery_score + 0.4 * percentage))
+            mastery.mastery_score = max(0, min(100, updated_score))
+            mastery.total_questions += total_q
+            mastery.correct_answers += score_val
+            mastery.total_attempts += 1
+            mastery.last_attempt_at = now
+
+        # Phase 4: Calculate Spaced-Repetition Revision Schedule
+        interval_days = get_review_interval(mastery.mastery_score)
+        mastery.next_review_at = calculate_next_review_at(mastery.mastery_score, now)
+        mastery.last_reviewed_at = now
+
+        db.commit()
+        db.refresh(attempt)
+        db.refresh(mastery)
+
+        return QuizAttemptResponse(
+            id=attempt.id,
+            quiz_id=quiz.id,
+            resource_id=resource.resource_id,
+            topic=topic,
+            score=score_val,
+            total_questions=total_q,
+            percentage=percentage,
+            attempted_at=attempt.attempted_at,
+            mastery_score=mastery.mastery_score,
+            mastery_status=mastery.status,
+            recommendation=mastery.recommendation,
+            next_review_at=mastery.next_review_at,
+            review_interval_days=interval_days,
+        )
+
+    def get_user_mastery(self, db: Session, user: User) -> List[Any]:
+        from backend.app.db.models.mastery import MasteryRecord
+        from backend.app.schemas.mastery import MasteryRecordResponse
+
+        records = (
+            db.query(MasteryRecord)
+            .filter(MasteryRecord.user_id == user.id)
+            .order_by(MasteryRecord.last_attempt_at.desc())
+            .all()
+        )
+        return [
+            MasteryRecordResponse(
+                id=r.id,
+                topic=r.topic,
+                mastery_score=r.mastery_score,
+                status=r.status,
+                total_questions=r.total_questions,
+                correct_answers=r.correct_answers,
+                total_attempts=r.total_attempts,
+                last_attempt_at=r.last_attempt_at,
+                recommendation=r.recommendation,
+            )
+            for r in records
+        ]
+
+    def get_user_knowledge_gaps(self, db: Session, user: User) -> Any:
+        from backend.app.schemas.mastery import KnowledgeGapResponse
+
+        all_records = self.get_user_mastery(db, user)
+        gaps = [r for r in all_records if r.mastery_score < 70]
+        mastered = [r for r in all_records if r.mastery_score >= 85]
+
+        return KnowledgeGapResponse(
+            total_topics=len(all_records),
+            gaps_count=len(gaps),
+            mastered_count=len(mastered),
+            gaps=gaps,
+            all_mastery=all_records,
+        )
+
+    def get_recommended_difficulty_for_topic(
+        self, db: Session, user: User, topic_name: str
+    ) -> Any:
+        from backend.app.db.models.mastery import MasteryRecord
+        from backend.app.services.difficulty_service import get_recommended_difficulty
+        from backend.app.schemas.mastery import DifficultyRecommendationResponse
+
+        topic = topic_name.strip()
+        record = (
+            db.query(MasteryRecord)
+            .filter(MasteryRecord.user_id == user.id, MasteryRecord.topic == topic)
+            .first()
+        )
+
+        score = record.mastery_score if record else None
+        difficulty, reason = get_recommended_difficulty(score)
+
+        return DifficultyRecommendationResponse(
+            topic=topic,
+            mastery_score=score,
+            recommended_difficulty=difficulty,
+            reason=reason,
+        )
