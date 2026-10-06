@@ -306,112 +306,93 @@ cd frontend && npm run build
 
 ---
 
-## Production Deployment Guide (Render Native + Neon)
+## Production Deployment Guide (Vercel Frontend + Render Backend)
 
-StudyPilot AI is configured for deployment as a **Render Native Web Service** (Python runtime) backed by **Neon Serverless PostgreSQL** and Google Gemini 2.5 Flash. Docker is not required for this deployment.
+StudyPilot AI uses a decoupled production deployment architecture:
+- **Frontend**: Hosted on **Vercel** (React 19 + Vite SPA)
+- **Backend**: Hosted on **Render** as a **Native Python Web Service** (FastAPI + Uvicorn)
+- **Database**: **Neon Serverless PostgreSQL** (external relational data)
+- **AI / LLM**: **Google Gemini 2.5 Flash** (`gemini-2.5-flash`)
+- **Vector & Upload Storage**: **ChromaDB** and uploaded PDFs stored on a **Render Persistent Disk** mounted at `/data`
+
+Docker is not required for this deployment.
 
 ### Architecture in Production
 
 ```
-┌────────────────────────────────────────────────────────┐
-│               Render Native Web Service                │
-│                                                        │
-│  FastAPI ASGI Server (0.0.0.0:$PORT)                   │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │  FastAPI Application (Uvicorn)                   │  │
-│  │  ├── Serves Production Frontend (Vite static)    │  │
-│  │  ├── REST API (/api/*)                           │  │
-│  │  └── Embedded AI Engine (all-MiniLM-L6-v2)       │  │
-│  └──────────────────────────────────────────────────┘  │
-│                            │                           │
-│  Persistent Mount: /data   │                           │
-│  ├── /data/chroma_db       │ (Vectors & Chunks)        │
-│  └── /data/uploads         │ (Ingested PDFs)           │
-└──────────────┬─────────────────────────────┬───────────┘
-               │                             │
-               ▼                             ▼
-┌──────────────────────────────┐ ┌──────────────────────────────┐
-│   Neon Managed PostgreSQL    │ │    Google Gemini 2.5 API     │
-│   (Serverless, SSL pooled)   │ │    (gemini-2.5-flash)        │
-└──────────────────────────────┘ └──────────────────────────────┘
+┌──────────────────────────────────────┐     ┌──────────────────────────────────────┐
+│           Vercel Frontend            │     │         Render Web Service           │
+│   (https://<project>.vercel.app)     │     │  (https://<service>.onrender.com)    │
+│                                      │     │                                      │
+│  React 19 + Vite SPA                 │     │  FastAPI ASGI Server (0.0.0.0:$PORT) │
+│  - Root Directory: frontend          │────►│  ├── REST API (/api/*)               │
+│  - VITE_API_URL=<render-backend-url> │     │  └── Embedded AI Engine (MiniLM)     │
+└──────────────────────────────────────┘     └───────────┬──────────────┬───────────┘
+                                                         │              │
+                                           Mount: /data  │              │
+                                   ┌─────────────────────┴───┐          │
+                                   │  Render Persistent Disk │          │
+                                   │  ├── /data/chroma_db    │          │
+                                   │  └── /data/uploads      │          │
+                                   └─────────────────────────┘          ▼
+                                                         ┌──────────────────────────┐
+                                                         │ Neon Serverless Postgres │
+                                                         │ (Users, Chats, Quizzes)  │
+                                                         └──────────────────────────┘
 ```
-
-### 1. Free vs. Paid Render Plan Breakdown
-
-| Feature | Render Free Web Service | Render Paid Web Service (with Persistent Disk) |
-| :--- | :--- | :--- |
-| **Relational Data (PostgreSQL)** | Fully persistent in external Neon DB | Fully persistent in external Neon DB |
-| **Vector DB (ChromaDB)** | **Ephemeral**: embeddings reset when service sleeps/redeploys | **Durable**: stored on persistent disk (`/data/chroma_db`) |
-| **PDF Uploads** | **Ephemeral**: uploaded files reset on sleep/redeploy | **Durable**: stored on persistent disk (`/data/uploads`) |
-| **Sleep / Spin-down** | Spins down after 15 minutes of inactivity | Never sleeps; always responsive |
-| **Recommendation** | Suitable for testing and demos | **Required for full persistence** |
 
 ---
 
-### 2. Step-by-Step Render Deployment
+### 1. Backend Deployment (Render Native Web Service)
 
-#### Step A: Set up Managed PostgreSQL on Neon
-1. Create a free project at [neon.tech](https://neon.tech).
-2. Under **Dashboard > Connection Details**, copy the connection string.
-   - Choose **Connection pooling** (`postgresql://user:pass@ep-xyz-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require`).
-   - The application automatically normalizes `postgresql://` $\rightarrow$ `postgresql+psycopg2://` and configures connection pre-pinging with short recycling pools (`pool_recycle=300`) suitable for Neon serverless architecture.
+#### Step A: Configure PostgreSQL on Neon
+1. Create a project at [neon.tech](https://neon.tech).
+2. Copy the **Connection pooling** connection string (`postgresql://user:pass@ep-xyz-pooler.neon.tech/neondb?sslmode=require`).
 
-#### Step B: Create a Render Native Web Service
-1. Log in to [Render Dashboard](https://dashboard.render.com).
-2. Click **New +** $\rightarrow$ **Web Service**.
-3. Connect your GitHub repository: `sanskarchourasiya445/StudyPilot-AI`.
-4. Configure service settings:
-   - **Name**: `studypilot-ai`
-   - **Region**: Choose the region closest to your Neon database (e.g., Oregon or Ohio).
-   - **Runtime**: **Python**.
-   - **Build Command**:
-     ```bash
-     cd frontend && npm install && npm run build && cd .. && pip install -r requirements.txt
-     ```
-   - **Pre-Deploy Command** (under Advanced):
-     ```bash
-     alembic upgrade head
-     ```
-   - **Start Command**:
-     ```bash
-     uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
-     ```
+#### Step B: Create / Configure Render Native Web Service
+1. In [Render Dashboard](https://dashboard.render.com), create a new **Web Service** from repository `sanskarchourasiya445/StudyPilot-AI`.
+2. Configure settings:
+   - **Runtime**: `Python`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Pre-Deploy Command**: `alembic upgrade head`
+   - **Start Command**: `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
    - **Health Check Path**: `/health`
-   - **Instance Type / Plan**:
-     - Select a paid plan (e.g. Starter) if you are attaching a persistent disk for durable ChromaDB/uploads.
-     - Select **Free** if testing without persistent disk.
+   - **Plan**: `Starter` (paid plan required for persistent disk)
 
-#### Step C: Attach Persistent Disk (For Paid Plans)
-If you are deploying on a paid plan with persistent disk:
-1. Under **Disks** $\rightarrow$ Click **Add Disk**.
-2. **Name**: `studypilot-data`
-3. **Mount Path**: `/data`
-4. **Size**: `10 GB` (or desired size)
+#### Step C: Attach Persistent Disk (Required for `/data`)
+> [!IMPORTANT]
+> The application is configured to store ChromaDB vectors at `/data/chroma_db` and uploaded PDFs at `/data/uploads`.
+> If deploying to an existing Render service, the disk **must be attached manually in the Render Dashboard**:
+> 1. In your Web Service settings, click **Disks**.
+> 2. Click **Add Disk**:
+>    - **Name**: `studypilot-data`
+>    - **Mount Path**: `/data`
+>    - **Size**: `10 GB`
+> 3. Click **Save Changes**. Render will mount `/data` with write permissions.
 
-#### Step D: Configure Environment Variables
-Under **Environment Variables**, add the following:
+#### Step D: Backend Environment Variables (Render)
+Under **Environment Variables** in Render:
+- `DATABASE_URL`: Your pooled Neon connection string (`sslmode=require`)
+- `GEMINI_API_KEY`: Your Google AI Studio API key
+- `JWT_SECRET`: Random 32+ character hex string
+- `GEMINI_MODEL`: `gemini-2.5-flash`
+- `CHROMA_PERSIST_DIRECTORY`: `/data/chroma_db`
+- `UPLOAD_DIR`: `/data/uploads`
+- `MAX_UPLOAD_SIZE_MB`: `50`
+- `BACKEND_CORS_ORIGINS`: Comma-separated list including your Vercel domain (e.g. `https://study-pilot-ai-three.vercel.app,http://localhost:5173`)
 
-**Required Secrets:**
-| Key | Value Description |
-| :--- | :--- |
-| `DATABASE_URL` | Neon PostgreSQL pooled connection string with SSL (`sslmode=require`) |
-| `GEMINI_API_KEY` | Google AI Studio API key |
-| `JWT_SECRET` (or `SECRET_KEY`) | Secure 32+ character random hex string (`python -c "import secrets; print(secrets.token_hex(32))"`) |
+---
 
-**Configuration Variables:**
-| Key | Default / Value | Description |
-| :--- | :--- | :--- |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Production Gemini LLM model |
-| `CHROMA_PERSIST_DIRECTORY` | `/data/chroma_db` | Vector store directory (falls back to local `data/chroma_db` if disk unattached) |
-| `UPLOAD_DIR` | `/data/uploads` | PDF storage directory (falls back to local `data/uploads` if disk unattached) |
-| `MAX_UPLOAD_SIZE_MB` | `50` | Maximum file upload size limit |
+### 2. Frontend Deployment (Vercel)
 
-#### Step E: Deploy
-1. Click **Create Web Service**.
-2. Render executes the build command: builds the React frontend with Vite and installs Python dependencies.
-3. Render runs `alembic upgrade head` before start.
-4. Uvicorn starts on `0.0.0.0:$PORT` serving both the SPA frontend and `/api` backend.
-5. Your application is live at `https://<service-name>.onrender.com`.
+1. In [Vercel Dashboard](https://vercel.com), import repository `sanskarchourasiya445/StudyPilot-AI`.
+2. Set **Root Directory** to `frontend`.
+3. Framework Preset: **Vite**.
+4. Build Command: `npm run build`.
+5. Output Directory: `dist`.
+6. Add Environment Variable:
+   - `VITE_API_URL`: Your deployed Render backend URL (e.g. `https://studypilot-ai-6txf.onrender.com`).
+7. Click **Deploy**. Vercel will compile the React SPA and serve it globally with automatic client-side routing rewrites via `frontend/vercel.json`.
 
 ---
 
@@ -420,17 +401,15 @@ Under **Environment Variables**, add the following:
 You can simulate the production runtime locally using Uvicorn:
 
 ```bash
-# 1. Build the production frontend
-cd frontend && npm install && npm run build && cd ..
-
-# 2. Run database migrations
+# 1. Run database migrations
 alembic upgrade head
 
-# 3. Start the application with Render-style start command
-uvicorn backend.app.main:app --host 0.0.0.0 --port 10000
-```
+# 2. Start the backend application
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 
-Access the application in your browser at `http://localhost:10000` or test health at `http://localhost:10000/health`.
+# 3. Start the frontend
+cd frontend && npm run dev
+```
 
 ---
 

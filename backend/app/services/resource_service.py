@@ -88,7 +88,14 @@ class ResourceService:
             raise ValueError(f"File size exceeds maximum permitted limit ({limit_mb} MB).")
 
         user_upload_dir = os.path.join(UPLOAD_DIR, user.id)
-        os.makedirs(user_upload_dir, exist_ok=True)
+        try:
+            os.makedirs(user_upload_dir, exist_ok=True)
+        except PermissionError as exc:
+            raise PermissionError(
+                f"[Errno 13] Permission denied creating upload directory '{user_upload_dir}'. "
+                "Repository configuration requires a persistent disk mounted at '/data'. "
+                "Please verify in the Render Dashboard that a Persistent Disk is attached and mounted at '/data'."
+            ) from exc
         file_path = os.path.join(user_upload_dir, filename)
 
         with open(file_path, "wb") as buffer:

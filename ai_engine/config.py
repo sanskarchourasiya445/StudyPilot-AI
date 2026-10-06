@@ -60,7 +60,14 @@ def ensure_dirs() -> None:
     folder.
     """
     for directory in (DOCUMENTS_DIR, AUDIO_DOWNLOAD_DIR, VECTOR_DB_DIR):
-        directory.mkdir(parents=True, exist_ok=True)
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+        except PermissionError as exc:
+            raise PermissionError(
+                f"[Errno 13] Permission denied creating '{directory}'. "
+                "Repository configuration requires a persistent disk mounted at '/data'. "
+                "Please verify in the Render Dashboard that a Persistent Disk is attached and mounted at '/data'."
+            ) from exc
 
 
 # ---------------------------------------------------------------------
