@@ -97,7 +97,8 @@ export function ResourceDetailPage() {
 
   const handleDeleteConfirm = async () => {
     try {
-      await deleteMutation.mutateAsync(resource.resource_id);
+      const targetId = resource.resource_id || resource.id || id;
+      await deleteMutation.mutateAsync(targetId);
       navigate('/resources');
     } catch {
       // Toast handles error

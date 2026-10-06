@@ -18,14 +18,16 @@
           var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (isDark) {
             document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
           } else {
             document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', 'light');
           }
         } catch (e) {}
       })();
     </script>
   </head>
-  <body class="bg-[#07090d] text-[#f5f7fa] min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white">
+  <body class="bg-[#07090d] text-[#f5f7fa] min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-150">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

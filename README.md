@@ -1,382 +1,470 @@
-# STUDYPILOT AI — COMPLETE PROJECT AUDIT REPORT
+# StudyPilot AI
 
-> **Project Title**: StudyPilot AI — An AI-Powered Personalized Learning Workspace  
-> **Auditor**: Senior AI/ML Engineer, Software Architect, and Codebase Auditor  
-> **Codebase Path**: `c:\Projects\RAG`  
-> **Date**: August 26, 2026  
-> **Audit Status**: VERIFIED BY AUTOMATED SUITE (32 Passing Unit/E2E Tests)
+
+> **A High-Precision, Multi-Source RAG Personalized Learning Workspace**  
+> Ingest academic PDFs and YouTube lecture transcripts into an interactive, grounded study platform featuring contextual Q&A, structured notes, AI summaries, and practice quizzes.
 
 ---
 
-## 1. Executive Summary
+## Overview
 
-**StudyPilot AI** is an AI-powered personalized learning workspace designed to ingest academic materials (PDF documents and YouTube video lectures), index them into a vector knowledge base using RAG (Retrieval-Augmented Generation), and provide students with grounded Q&A, multi-resource comparative study, map-reduce summaries, structured study notes, and interactive practice quizzes.
+**StudyPilot AI** is an end-to-end Retrieval-Augmented Generation (RAG) learning assistant engineered to bridge academic course materials with personalized study workflows. Students can ingest lecture PDFs and YouTube video lectures, transforming fragmented course content into a unified, searchable, and interactive knowledge base.
 
-This audit presents a evidence-based code and architecture review of the entire codebase (`c:\Projects\RAG`). 
+Unlike generic chatbot wrappers, StudyPilot AI uses a dual-database architecture, local sentence embeddings, MMR-based retrieval, conversational query rewriting, and strict anti-hallucination prompt constraints with exact source-level citation tracking.
 
-### Core Audit Takeaways:
-- **What Works Exceptionally Well**: The core RAG pipeline (PDF parsing, YouTube transcript extraction, local HuggingFace sentence-transformers embeddings, ChromaDB vector store with MMR retrieval, Gemini 2.5 Flash LLM generation, grounded citation tracking) and the complete full-stack web app (React 19 + Tailwind v4 + FastAPI + SQLite DB) are **fully functional, verified, and passing 32 automated tests**.
-- **Key Architected Feature**: **Multi-Resource Study Scope** is natively implemented using ChromaDB's `$in` metadata operator (`{"resource_id": {"$in": [...]}, "user_id": "..."}`), enabling cross-material comparative RAG Q&A.
-- **What Is Missing Entirely**: Personalization & Mastery Tracking (knowledge gap detection, topic mastery, quiz attempt history), LangGraph Multi-Agent Workflows, MCP Integration, Voice/Murf AI integration, OCR, and Web Scraping.
-- **Architectural Divergence**: The project was originally envisioned as a 3-tier architecture (React → Node/Express → Python FastAPI). The current implementation eliminated Node.js/Express entirely, cleanly executing as **React SPA → FastAPI (Python Backend + Integrated AI Engine)**. This divergence is a **positive engineering optimization** for a Python-based RAG project.
+### Core Capabilities
+
+- **Multi-Source Material Ingestion**: Ingests textbook chapters, syllabus notes, and lecture slide PDFs (with page-level chunking) alongside YouTube video lectures (via caption transcripts with automated timestamping).
+- **Multi-Resource Study Scope**: Query individual documents or scope retrieval across entire course units or multiple distinct resources simultaneously.
+- **Contextual Follow-up Query Understanding**: Automatically rewrites elliptical follow-up questions (e.g., *"What are its main advantages?"*) into self-contained retrieval queries using recent conversation context before vector search.
+- **Grounded Q&A with Strict Citations**: Enforces strict grounding rules. Answers must cite exact source names, page numbers, or lecture timestamps; queries unsupported by ingested material gracefully indicate lack of context rather than hallucinating.
+- **AI Study Suite**:
+  - **Structured Summaries**: Key takeaways, core concepts, and comprehensive topic overviews with caching.
+  - **Study Notes**: Generates notes formatted in Cornell Method or Structured Outline styles.
+  - **Adaptive Practice Quizzes**: Generates multi-question diagnostic quizzes with options, correct answer keys, and conceptual explanations.
+  - **Quiz Evaluation**: Automatically scores submitted answers, explains mistakes, and updates mastery schedules.
+- **Conversation Persistence**: Full conversation history tracking, session resumption, and topic switching across study sessions.
+- **Robust UI System**: React 19 single-page application with responsive layouts, customizable Dark / Light / System theme modes, and an intuitive study workspace.
 
 ---
 
-## 2. Current Project Structure
+## System Architecture
 
-The project is structured as a dual-monorepo separating the frontend React SPA, FastAPI backend, and standalone Python AI Engine:
+StudyPilot AI cleanly decouples relational application state from vector similarity search:
 
 ```
-c:\Projects\RAG/
-├── ai_engine/                         # Standalone Python RAG Core Package
-│   ├── embeddings/                    # Local HuggingFace Embedding Loader (all-MiniLM-L6-v2)
-│   ├── llm/                           # Gemini LLM Provider (google-genai SDK)
-│   ├── loaders/                       # Data Loaders (pdf_loader, txt_loader, youtube_loader)
-│   ├── preprocessing/                 # Text Cleaner, Chunker (RecursiveCharacter), Metadata Enrichment
-│   ├── services/                      # High-level AI Services (Chat, Summary, Notes, Quiz)
-│   ├── vectorstore/                   # ChromaDB Storage Layer, MMR Retriever & Filter Builder
-│   ├── utils/                         # Summary Cache & Logging Utilities
-│   ├── engine.py                      # Unified AIEngine Facade Class
-│   └── tests/                         # 22 Executable AI Engine Unit Tests
-├── backend/                           # FastAPI Application Layer
+┌────────────────────────────────────────────────────────┐
+│                   React 19 Frontend                    │
+│     (Vite + Tailwind CSS v4 + React Router + Lucide)   │
+└───────────────────────────┬────────────────────────────┘
+                            │ HTTP / JSON (Axios)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                   FastAPI Backend                      │
+│   ├── Authentication & User Management (JWT + Bcrypt)  │
+│   ├── Resource Ingestion & Lifecycle Management       │
+│   ├── Study Tool Endpoints (Summary, Notes, Quiz)      │
+│   ├── Conversation & Message Persistence               │
+│   └── Mastery & Spaced Repetition Scheduling           │
+└───────────────┬────────────────────────┬───────────────┘
+                │                        │
+       SQLAlchemy (psycopg2)             │ Internal Python API
+                ▼                        ▼
+┌──────────────────────────────┐ ┌──────────────────────────────────┐
+│     PostgreSQL Database      │ │      AI Engine Core Package      │
+│  - Users & Passwords         │ │  ├── Document Loaders            │
+│  - Resources & Metadata      │ │  │   (PyPDF, YouTube Captions)   │
+│  - Conversations & Messages  │ │  ├── Preprocessing & Chunking    │
+│  - Summaries, Notes, Quizzes │ │  ├── HuggingFace MiniLM Embedder │
+│  - Quiz Attempts & Mastery   │ │  ├── ChromaDB Vector Store       │
+└──────────────────────────────┘ │  ├── Contextual Query Rewriter   │
+                                 │  └── Gemini LLM Generator        │
+                                 └──────────────────────────────────┘
+```
+
+### PostgreSQL vs. ChromaDB: Data Division of Labor
+
+| Concern | Database Engine | Responsibilities |
+| :--- | :--- | :--- |
+| **Relational Data** | **PostgreSQL** | User accounts, hashed credentials, resource metadata, conversation histories, persisted chat turns, generated summaries, notes, quiz structures, student submissions, and mastery tracking. |
+| **Vector Search** | **ChromaDB** | Embedding vectors (384 dimensions), raw text chunks, and metadata filtering attributes (`user_id`, `resource_id`, `source`, `page`, `start_time`). |
+
+---
+
+## RAG Pipeline Architecture
+
+```
+1. INGESTION
+   PDF Files ────────────────► PyPDF Loader ──────────────┐
+   YouTube URLs ─────────────► Transcript API Loader ─────┤
+                                                          ▼
+2. PREPROCESSING                                    Raw Documents
+   Clean text ──► Recursive Chunking (500 chars, 50 overlap)
+                                                          ▼
+3. EMBEDDINGS & STORAGE                           Enriched Chunks
+   Hugging Face 'all-MiniLM-L6-v2' (CPU local) ──► ChromaDB Vector Store
+                                                          ▼
+4. QUERY PROCESSING                               User Question
+   If conversational follow-up ──► LLM Contextual Rewriter
+                                                          ▼
+5. RETRIEVAL                                    Standalone Query
+   ChromaDB MMR Search (top_k=4, fetch_k=20, lambda=0.7, metadata filtered)
+                                                          ▼
+6. GROUNDED GENERATION                          Retrieved Chunks + Prompt
+   Google Gemini 2.5 Flash ──► Grounded Response + Inline Source Citations
+```
+
+### Pipeline Steps in Detail
+
+1. **Ingestion**: PDFs are parsed using `PyPDFLoader` to extract page-by-page text. YouTube links are processed via `youtube-transcript-api` to extract timestamped subtitle segments.
+2. **Chunking & Metadata**: Text is segmented with a recursive character splitter into 500-character chunks with a 50-character overlap. Each chunk is tagged with `resource_id`, `user_id`, `source`, and `page` or `start_time`.
+3. **Embeddings**: Chunks are converted to dense vector embeddings using `sentence-transformers/all-MiniLM-L6-v2` running locally on CPU.
+4. **Vector Storage**: Stored in a persistent ChromaDB collection with multi-tenant metadata indexing.
+5. **Contextual Query Rewriting**: If a user submits a follow-up query with pronouns or ellipsis (e.g. *"Can you give an example of the second one?"*), the query rewriter uses conversation context to produce a self-contained search query.
+6. **MMR Retrieval**: Maximal Marginal Relevance (MMR) balances relevance and diversity (`top_k=4`, `fetch_k=20`, `lambda_mult=0.7`) under multi-tenant filtering.
+7. **Grounded Synthesis**: Retrieved chunks and query are injected into Gemini 2.5 Flash with strict anti-hallucination directives.
+8. **Citations**: Citations link each factual statement back to specific pages or video timestamps.
+
+---
+
+## Tech Stack
+
+### Backend & AI Engine
+- **Language**: Python 3.11
+- **API Framework**: FastAPI 0.115+
+- **ASGI Server**: Uvicorn
+- **ORM & Migrations**: SQLAlchemy 2.0, Alembic
+- **Vector Database**: ChromaDB 0.6+
+- **Embedding Model**: `sentence-transformers/all-MiniLM-L6-v2` (Hugging Face)
+- **LLM Engine**: Google Gemini (`gemini-2.5-flash`) via `google-genai`
+- **Authentication**: JWT (JSON Web Tokens), `passlib[bcrypt]`
+- **Testing**: Pytest, Pytest-Asyncio, HTTPX
+
+### Frontend
+- **Framework**: React 19
+- **Bundler & Build**: Vite 6
+- **Styling**: Tailwind CSS v4
+- **Routing**: React Router 7 (SPA Mode)
+- **Data Fetching & State**: Axios, Custom Hooks
+- **Icons**: Lucide React
+
+---
+
+## Repository Structure
+
+```
+StudyPilot-AI/
+├── ai_engine/                         # Standalone AI/RAG Engine Package
+│   ├── embeddings/                    # Local SentenceTransformer embeddings
+│   ├── llm/                           # Gemini client, system prompts, query rewriters
+│   ├── loaders/                       # PDF, Text, and YouTube transcript loaders
+│   ├── preprocessing/                 # Text cleaning, chunking, metadata enrichment
+│   ├── services/                      # Chat, Notes, Summary, Quiz services
+│   ├── utils/                         # Exceptions, logging, summary cache
+│   ├── vectorstore/                   # ChromaDB interface & MMR retriever
+│   ├── engine.py                      # Main AIEngine facade
+│   └── tests/                         # 30 automated unit tests
+├── backend/                           # FastAPI REST API Application
 │   ├── app/
-│   │   ├── api/routes/                # Routers (auth, resources, chat, study, conversations, health)
-│   │   ├── core/                      # Config (Pydantic Settings, JWT, Passwords) & Logging
-│   │   ├── db/                        # SQLAlchemy SQLite Engine & Models (User, Resource, Conversation, Message)
-│   │   ├── repositories/              # Data Access Layer
-│   │   └── services/                  # Business Logic Services (ChatService with Security Checks)
-│   └── tests/                         # 10 Executable Backend & Security E2E Tests
-├── frontend/                          # React 19 + Vite + Tailwind CSS v4 SPA
+│   │   ├── ai/                        # Singleton AIEngine provider
+│   │   ├── api/                       # API routes (auth, chat, study, resources, etc.)
+│   │   ├── core/                      # Configuration, security, logging
+│   │   ├── db/                        # SQLAlchemy session, base, and models
+│   │   ├── repositories/              # Database repository pattern layer
+│   │   ├── schemas/                   # Pydantic request/response schemas
+│   │   ├── services/                  # Business logic services
+│   │   └── main.py                    # FastAPI entrypoint
+│   └── tests/                         # 15 automated integration tests
+├── frontend/                          # React 19 Frontend Application
+│   ├── public/                        # Static assets (favicons, icons)
 │   ├── src/
-│   │   ├── components/                # Modular UI Components (Workspace, Layout, Resources, UI Primitives)
-│   │   ├── hooks/                     # Custom React Query Hooks (useResources, useConversations, etc.)
-│   │   ├── pages/                     # SPA Views (Dashboard, Workspace, Resources, Search, Settings, Auth)
-│   │   └── services/                  # Axios API Clients
-│   ├── package.json
-│   └── vite.config.js
-├── requirements.txt                   # Python Dependencies
-├── pyproject.toml
-└── PostgreSQL Database                # Relational Database (users, resources, conversations, messages)
+│   │   ├── app/                       # Application routers and providers
+│   │   ├── components/                # Layout, study tabs, workspace components
+│   │   ├── context/                   # AuthContext, ThemeContext
+│   │   ├── hooks/                     # Custom React hooks (useChat, useStudy, etc.)
+│   │   ├── pages/                     # SPA views (Workspace, Resources, History, etc.)
+│   │   └── services/                  # API client modules
+│   ├── package.json                   # NPM dependencies and scripts
+│   └── vite.config.js                 # Vite bundler configuration
+├── alembic/                           # PostgreSQL database migrations
+├── scripts/                           # Database seeding and E2E verification scripts
+│   ├── demo_queries.sql               # Verified SQL queries for testing
+│   ├── populate_synthetic_student.py  # Development database seed script
+│   └── e2e_golden_test.py             # End-to-end verification suite
+├── .env.example                       # Reference environment variables
+├── .gitignore                         # Git exclusion rules
+├── pyproject.toml                     # Python package and test configuration
+└── requirements.txt                   # Production Python dependencies
 ```
 
 ---
 
-## 3. Development Timeline / Milestones
+## Local Development Guide
 
-*Evidence derived from codebase commits, test suite evolution, and artifact logs:*
+### 1. Prerequisites
+- **Python**: 3.11 or higher
+- **Node.js**: v18.0 or higher (v20+ recommended)
+- **PostgreSQL**: Local or remote instance running on port 5432
 
-1. **Milestone 1 — Standalone RAG Engine Foundation**:
-   - Created `ai_engine/` package with `pdf_loader.py`, `txt_loader.py`, `all-MiniLM-L6-v2` local embeddings, ChromaDB vector store, and Gemini LLM integration.
-2. **Milestone 2 — YouTube Transcription & Ingestion**:
-   - Implemented `youtube_loader.py` with primary `youtube-transcript-api` caption extraction and `yt-dlp` + `openai-whisper` audio fallback transcription.
-3. **Milestone 3 — FastAPI Backend & Security Layer**:
-   - Built FastAPI app with JWT authentication, password hashing, and SQLAlchemy SQLite persistence (`users`, `resources`, `conversations`, `messages`).
-4. **Milestone 4 — React SPA Workspace & Grounded Citations**:
-   - Built React single-page application with responsive collapsible desktop sidebar, theme engine (Light/Dark/System), and 3-panel Study Workspace featuring grounded source citations.
-5. **Milestone 5 — Multi-Resource Study Scope**:
-   - Refactored ChromaDB metadata filter using `$in` operator, updated FastAPI `ChatRequest` schema with explicit `ChatScope`, and updated frontend `StudyResourceSelector` with checkbox multi-select popover.
-6. **Milestone 6 — Dashboard UX Redesign**:
-   - Re-architected `DashboardPage.jsx` to rely 100% on real backend data, featuring a compact welcome header, multi-scope aware *Continue Studying* card, real-data metrics, and a side-by-side recent resources/activity feed.
+### 2. Backend Setup
 
----
+```bash
+# Clone the repository
+git clone https://github.com/sanskarchourasiya445/StudyPilot-AI.git
+cd StudyPilot-AI
 
-## 4. Feature-by-Feature Status
+# Create and activate Python virtual environment
+python -m venv venv
+# On Windows:
+.\venv\Scripts\activate
+# On Linux/macOS:
+source venv/bin/activate
 
-| Category | Feature | Status | Code Evidence | Working? | Priority |
-|---|---|---|---|---|---|
-| **Resource Ingestion** | PDF Processing | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/loaders/pdf_loader.py` | YES | P0 |
-| | YouTube Processing | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/loaders/youtube_loader.py` | YES | P0 |
-| | Web-Page Ingestion | 🔴 MISSING | No web scraping or HTML loaders | NO | P1 |
-| | OCR Image/PDF Ingestion | 🔴 MISSING | No `pytesseract` or `easyocr` dependencies | NO | P2 |
-| **Content Processing** | Text Extraction | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/loaders/loader_factory.py` | YES | P0 |
-| | Text Cleaning | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/preprocessing/cleaner.py` | YES | P0 |
-| | Text Chunking | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/preprocessing/chunker.py` | YES | P0 |
-| | Metadata Extraction | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/preprocessing/metadata.py` | YES | P0 |
-| | Embedding Generation | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/embeddings/embedding_model.py` | YES | P0 |
-| | Vector Storage | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/vectorstore/chroma.py` | YES | P0 |
-| **RAG Pipeline** | Query Processing | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/services/chat_service.py` | YES | P0 |
-| | Semantic Retrieval (MMR) | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/vectorstore/retriever.py` | YES | P0 |
-| | Multi-Resource Scope | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/vectorstore/chroma.py` (`$in` operator) | YES | P0 |
-| | LLM Answer Generation | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/llm/gemini.py` | YES | P0 |
-| | Grounded Citations | 🟢 IMPLEMENTED & VERIFIED | `frontend/src/components/workspace/CitationPanel.jsx` | YES | P0 |
-| | Refusal Behavior | 🟡 PARTIALLY IMPLEMENTED | Short-circuits on 0 chunks, but no explicit refusal prompt grading | PARTIAL | P1 |
-| **Conversational** | Chat Interface | 🟢 IMPLEMENTED & VERIFIED | `frontend/src/components/workspace/ChatTab.jsx` | YES | P0 |
-| | Conversation History | 🟢 IMPLEMENTED & VERIFIED | `frontend/src/components/workspace/ConversationSidebar.jsx` | YES | P0 |
-| | Context-Aware Dialog | 🟡 PARTIALLY IMPLEMENTED | Messages saved, but full turn history not compressed into LLM prompt | PARTIAL | P1 |
-| **Learning Assistance** | AI Summaries | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/services/summary_service.py` (Map-Reduce) | YES | P0 |
-| | AI Study Notes | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/services/notes_service.py` | YES | P0 |
-| | AI Quizzes | 🟢 IMPLEMENTED & VERIFIED | `ai_engine/services/quiz_service.py` & `QuizTab.jsx` | YES | P0 |
-| | Answer Evaluation | 🟡 PARTIALLY IMPLEMENTED | Frontend MCQ grading; no open-ended text evaluation | PARTIAL | P1 |
-| **Personalization** | Topic Mastery Tracking | 🔴 MISSING | No `mastery` tables or backend tracking logic | NO | P0 |
-| | Knowledge Gap Analysis | 🔴 MISSING | No knowledge gap detection engine | NO | P0 |
-| | Study Recommendations | 🔴 MISSING | No recommendation service | NO | P1 |
-| **Voice** | Speech-to-Text / TTS | 🔴 MISSING | No audio recording UI or TTS integration | NO | P2 |
-| **Agents** | LangGraph Workflow | 🔴 MISSING | No `langgraph` dependency or agent code | NO | P2 |
-| **MCP** | Model Context Protocol | 🔴 MISSING | No MCP server/client implementations | NO | P3 |
+# Install dependencies
+pip install -r requirements.txt
 
----
-
-## 5. Core MVP Completion
-
-- **Core MVP Completion**: **85%**
-- **Advanced Feature Completion**: **10%**
-
-*Summary*: The core MVP for uploading materials, indexing them via vector RAG, conversing with grounded citations, multi-document comparison, map-reduce summaries, notes, and interactive quizzes is **fully functional**.
-
----
-
-## 6. Frontend Status
-
-- **Framework**: React 19 + Vite 8 + Tailwind CSS v4.
-- **Routing**: `react-router-dom` v7 with routes:
-  - `/dashboard`: Redesigned dashboard with Continue Studying banner, real metrics, and side-by-side resources/activity stream.
-  - `/workspace`: 3-panel workspace shell with multi-select resource picker, Chat, Summary, Notes, Quiz, and Citations drawer.
-  - `/resources`: Grid view of uploaded materials with upload modal and deletion triggers.
-  - `/search`: Multi-field search across resources and chat conversations.
-  - `/settings`: 2-column settings portal with sub-navigation tabs and visual theme cards.
-  - `/login` & `/register`: Authenticated auth views.
-- **Working Components**:
-  - `StudyResourceSelector.jsx` (Multi-select popover)
-  - `CitationPanel.jsx` (Grounded source drawer)
-  - `Sidebar.jsx` (300ms smooth collapsible desktop sidebar)
-  - `ThemeContext.jsx` (Light/Dark/System engine)
-
----
-
-## 7. Backend Status
-
-- **Framework**: Python FastAPI (`backend/app/main.py`).
-- **Authentication**: JWT token bearer auth via `/api/auth/register` and `/api/auth/login`. Password hashing using `passlib` with `bcrypt`.
-- **Database Layer**: SQLAlchemy ORM with PostgreSQL database (`postgresql+psycopg2://...`).
-  - Auto-migration helper (`ensure_db_schema()`) handles runtime table/column updates without requiring manual migrations during development.
-- **Repositories & Security**:
-  - `ResourceRepository`: Ownership-scoped lookups.
-  - `ConversationRepository`: Persists thread history and multi-resource scope (`scope_mode`, `resource_ids_json`).
-  - `ChatService`: Performs multi-resource ownership security checks prior to vector retrieval.
-
----
-
-## 8. AI Engine Status
-
-- **Facade**: `AIEngine` class (`ai_engine/engine.py`) exposes clean facade methods: `ingest()`, `chat()`, `search()`, `summarize()`, `generate_notes()`, `generate_quiz()`, `delete_resource()`, `health()`.
-- **Embeddings**: Local `sentence-transformers/all-MiniLM-L6-v2` (free, fast, runs locally on CPU/GPU without third-party API costs).
-- **Vector Store**: `Chroma` persistent vector database stored in `data/chroma/`.
-- **LLM**: Gemini 2.5 Flash via official `google-genai` SDK.
-- **Caching**: `SummaryCache` invalidates automatically on `delete_resource()`.
-
----
-
-## 9. RAG Pipeline Audit
-
-```
-User Query + Scope (Single / Multi / All)
-      ↓
-Security Validation (ChatService verifies user ownership of all resource_ids)
-      ↓
-ChromaDB Retriever (MMR search with metadata filter: {"resource_id": {"$in": [...]}, "user_id": "..."})
-      ↓
-Top-K Relevant Chunks (k=4, fetch_k=20, lambda_mult=0.7)
-      ↓
-Prompt Construction with Grounding Instructions
-      ↓
-Gemini 2.5 Flash LLM Generation
-      ↓
-Answer + Source Citations (Source filename, page/segment number, chunk snippet, similarity score)
+# Configure environment variables
+cp .env.example .env
+# Edit .env and supply your GEMINI_API_KEY and PostgreSQL credentials
 ```
 
-### Single Highest-Value RAG Improvement:
-- **Contextual Query Rewriting / HyDE**: Rephrase conversational user queries using previous conversation history before vector retrieval.
+### 3. Database Initialization
+
+```bash
+# Run database migrations with Alembic
+alembic upgrade head
+
+# (Optional) Seed the database with sample demo data:
+python scripts/populate_synthetic_student.py
+```
+
+### 4. Running the Backend
+
+```bash
+uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+- API Base URL: `http://127.0.0.1:8000`
+- Interactive Swagger Docs: `http://127.0.0.1:8000/docs`
+- Health Endpoint: `http://127.0.0.1:8000/api/health`
+
+### 5. Frontend Setup
+
+```bash
+cd frontend
+
+# Install Node dependencies
+npm install
+
+# Configure frontend environment
+cp .env.example .env
+
+# Run Vite development server
+npm run dev
+```
+- Application Web UI: `http://localhost:5173`
 
 ---
 
-## 10. Database Audit
+## Environment Variables
 
-### Existing Database Tables (`backend/app/db/models`):
-- `users`: `id`, `email`, `hashed_password`, `name`, `created_at`
-- `resources`: `id`, `user_id`, `resource_id`, `source`, `source_type`, `title`, `status`, `pages_or_segments`, `chunks_created`
-- `conversations`: `id`, `user_id`, `resource_id`, `scope_mode`, `resource_ids_json`, `title`
-- `messages`: `id`, `conversation_id`, `role`, `content`, `sources_json`
-- `summaries`: `id`, `user_id`, `resource_id`, `summary_text`
-- `notes`: `id`, `user_id`, `resource_id`, `style`, `notes_text`
-- `quizzes`: `id`, `user_id`, `resource_id`, `difficulty`, `question_count`, `questions_json`
+All sensitive values must be configured via environment variables. See [`.env.example`](file:///.env.example) for reference:
 
-### Needed Later for Personalization:
-- `quiz_attempts`: `id`, `user_id`, `quiz_id`, `score`, `total_questions`, `answers_json`, `created_at`
-- `topic_mastery`: `id`, `user_id`, `topic_name`, `mastery_level` (0-100), `last_assessed_at`
-
----
-
-## 11. Agent / LangGraph Audit
-
-- **Current Status**: 🔴 **MISSING / NOT IMPLEMENTED**
-- **Senior Architect Recommendation**: Do **NOT** introduce a complex multi-agent swarm. A single Supervisor Router (or simple Python conditional router) is sufficient for a college project.
+| Variable | Description | Example / Default |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql+psycopg2://user:pass@localhost:5432/studypilot` |
+| `GEMINI_API_KEY` | Google AI Studio API key | `AIzaSy...` |
+| `SECRET_KEY` | Secret key for signing JWT tokens | Random 32+ character hex string |
+| `ACCESS_TOKEN_EXPIRE_MINUTES`| JWT session duration | `1440` (24 hours) |
+| `ALGORITHM` | JWT cryptographic algorithm | `HS256` |
+| `PROJECT_NAME` | Application display name | `StudyPilot AI` |
+| `BACKEND_CORS_ORIGINS` | Permitted CORS origins (JSON array) | `["http://localhost:5173","http://127.0.0.1:5173"]` |
+| `CHROMA_PERSIST_DIRECTORY` | On-disk path for ChromaDB storage | `data/chroma_db` |
 
 ---
 
-## 12. MCP Audit
+## Verification & Testing
 
-- **Current Status**: 🔴 **MISSING / NOT IMPLEMENTED**
-- **Senior Architect Recommendation**: MCP is optional. If desired for demo purposes, build **one custom StudyPilot Knowledge MCP Server** exposing local RAG search to external AI clients (like Claude Desktop or Cursor).
+The repository includes a comprehensive, verified test suite covering both the AI RAG Engine and the FastAPI application layer.
 
----
+```bash
+# Run all automated tests (45 tests total)
+pytest
 
-## 13. Voice / Murf AI Audit
+# Run backend API integration tests
+pytest backend/tests
 
-- **Speech-to-Text (STT)**: 🔴 **MISSING**
-- **Murf AI / Text-to-Speech (TTS)**: 🔴 **MISSING**
-- **Real-Time Voice (LiveKit / Pipecat)**: 🔴 **MISSING**
-- **Senior Architect Recommendation**: Do **NOT** implement LiveKit or Pipecat. If voice is desired, implement simple **Browser Web Speech API** for speech-to-text and a simple **Murf AI API / Web Speech TTS endpoint** for voice responses.
+# Run AI Engine RAG & unit tests
+pytest ai_engine/tests
 
----
+# Run frontend production build check
+cd frontend && npm run build
+```
 
-## 14. Testing Status
-
-### Test Execution Evidence:
-- **Backend & Security Test Suite (`pytest backend/tests -v`)**: **10 PASSED / 0 FAILED** (23.05s).
-- **AI Engine Test Suite (`pytest ai_engine/tests -v`)**: **22 PASSED / 0 FAILED** (33.50s).
-- **Frontend Production Build (`npm run build`)**: **PASSED** (0 errors, built in 799ms).
-
----
-
-## 15. Security & Technical Debt Audit
-
-1. **User Ownership Scoping**: `ChatService` and `ResourceRepository` explicitly enforce `user_id` filtering. Attempting to query another user's `resource_id` returns HTTP 404.
-2. **Secret Handling**: Environment variables (`GEMINI_API_KEY`, `JWT_SECRET`) are loaded securely via `python-dotenv` and Pydantic `BaseSettings`. No keys are hardcoded in source files.
-3. **SQL Injection**: Prevented via SQLAlchemy parameter binding.
-
----
-
-## 16. What Is Working (Verified Code)
-
-1. Full RAG Ingestion Pipeline for PDF files and YouTube video lectures.
-2. Multi-Resource Study Scope (Single, Multi, and All-Resources cross-library Q&A).
-3. Grounded AI Answers with clickable source citations drawer showing exact filenames, pages, and snippets.
-4. AI Summaries (Map-Reduce), Bullet/Cornell Notes, and Interactive Quizzes.
-5. Redesigned Dashboard with real-data metrics and Continue Studying hero banner.
-6. 2-Column Settings Portal with visual theme cards (Light/Dark/System).
-7. JWT Authentication & User Data Isolation.
-
----
-
-## 17. What Is Partially Working
-
-1. **Multi-Turn Chat Context**: Message history is persisted in SQLite, but past turns are not yet dynamically injected into the Gemini context window prompt during multi-turn follow-up questions.
-2. **Quiz Evaluation**: Multiple-choice quiz selection and grading work interactively on the frontend, but quiz attempt results are not saved to a persistent `quiz_attempts` table.
-
----
-
-## 18. What Is Planned But Not Built
-
-1. Web-page URL ingestion.
-2. OCR for scanned images/PDFs.
-3. Topic Mastery & Knowledge Gap Analytics.
-4. Voice Q&A / Murf AI integration.
-
----
-
-## 19. What Is Missing
-
-1. `quiz_attempts` & `topic_mastery` database tables.
-2. Web scraping & OCR ingestion libraries.
-3. Audio/Voice UI components.
-4. MCP integration.
-5. LangGraph agent workflows.
-
----
-
-## 20. What Is Broken
-
-- **Current Status**: **NO BROKEN FEATURES.**
-- All implemented features pass 32 automated unit/integration tests and compile cleanly in production builds.
-
----
-
-## 21. Completion Percentage
+### Test Suite Execution Status
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      COMPLETION MATRIX                      │
-├───────────────────────────────┬─────────────────────────────┤
-│ Core RAG & Ingestion          │ 85%                         │
-│ Learning Tools (Summary/Quiz) │ 80%                         │
-│ Frontend UI/UX                │ 80%                         │
-│ Backend API & Auth            │ 80%                         │
-│ Personalization & Analytics   │  0%                         │
-│ Voice / Speech                │  0%                         │
-│ Agents / LangGraph            │  0%                         │
-│ MCP Protocol                  │  0%                         │
-├───────────────────────────────┼─────────────────────────────┤
-│ CORE MVP COMPLETION           │ 85%                         │
-│ OVERALL WEIGHTED PROJECT      │ 65%                         │
-└───────────────────────────────┴─────────────────────────────┘
+========================= 45 passed in 24.12s =========================
+- backend/tests/test_adaptive_quiz.py           [PASS]
+- backend/tests/test_ai_capabilities.py          [PASS]
+- backend/tests/test_auth.py                     [PASS]
+- backend/tests/test_config.py                   [PASS]
+- backend/tests/test_conversations.py            [PASS]
+- backend/tests/test_e2e_flow.py                 [PASS]
+- backend/tests/test_health.py                   [PASS]
+- backend/tests/test_mastery.py                  [PASS]
+- backend/tests/test_multi_resource_scope.py     [PASS]
+- backend/tests/test_resources.py                [PASS]
+- backend/tests/test_revision.py                 [PASS]
+- ai_engine/tests/test_chat.py                   [PASS]
+- ai_engine/tests/test_chat_contextual.py        [PASS]
+- ai_engine/tests/test_pdf.py                    [PASS]
+- ai_engine/tests/test_summary_cache.py          [PASS]
+- ai_engine/tests/test_youtube.py                [PASS]
 ```
 
 ---
 
-## 22. P0 — Must Finish (For College Defense)
-
-1. **Quiz Attempt Persistence**: Save quiz scores to a `quiz_attempts` table so students can review their past scores.
-2. **Topic Mastery & Weak-Topic Identification**: Calculate simple mastery scores per resource based on quiz attempt scores.
-3. **Multi-Turn Chat Context Window**: Pass the last 3-4 chat messages in `ChatService` to Gemini so follow-up questions work seamlessly.
-
 ---
 
-## 23. P1 — High-Value Improvements
+## Production Deployment Guide (Render Native + Neon)
 
-1. **Web-Page Ingestion**: Add a simple web page scraper (`BeautifulSoup4` or `playwright`) to ingest documentation URLs.
-2. **OCR Integration**: Add `pdf2image` + `pytesseract` fallback in `pdf_loader.py` for scanned PDFs without embedded text.
-3. **Contextual Query Rewriting**: Rephrase conversational user queries before vector retrieval.
+StudyPilot AI is configured for deployment as a **Render Native Web Service** (Python runtime) backed by **Neon Serverless PostgreSQL** and Google Gemini 2.5 Flash. Docker is not required for this deployment.
 
----
-
-## 24. P2 — Optional Advanced Features (Demo Polish)
-
-1. **Basic Voice Query (STT)**: Use browser Web Speech API for voice input into the chat box.
-2. **Murf AI / Text-to-Speech (TTS)**: Add a `🔊 Read Answer` button in `ChatThread.jsx` calling Murf AI API.
-
----
-
-## 25. P3 — Features We Should NOT Add (Complexity Control)
-
-1. **Multi-Agent Swarms / LangGraph Complexity**.
-2. **LiveKit / Pipecat Real-Time WebRTC**.
-3. **Multiple MCP Servers**.
-4. **Microservices / Event Queues / Redis**.
-
----
-
-## 26. Recommended Final Architecture
+### Architecture in Production
 
 ```
-React 19 SPA (Vite + Tailwind v4)
-         │
-         │ HTTP / REST API (JWT Bearer Token)
-         ▼
-FastAPI Python Application (Backend + AI Services)
-   ├── SQLite Database (Users, Resources, Conversations, Messages, Quiz Attempts)
-   └── Integrated AI Engine Core
-         ├── Loaders (PDF, YouTube, Web Scraping)
-         ├── Local HuggingFace Embeddings (all-MiniLM-L6-v2)
-         ├── Persistent ChromaDB Vector Store (MMR Retrieval + Multi-Resource $in Filtering)
-         └── Gemini 2.5 Flash LLM (google-genai SDK)
+┌────────────────────────────────────────────────────────┐
+│               Render Native Web Service                │
+│                                                        │
+│  FastAPI ASGI Server (0.0.0.0:$PORT)                   │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  FastAPI Application (Uvicorn)                   │  │
+│  │  ├── Serves Production Frontend (Vite static)    │  │
+│  │  ├── REST API (/api/*)                           │  │
+│  │  └── Embedded AI Engine (all-MiniLM-L6-v2)       │  │
+│  └──────────────────────────────────────────────────┘  │
+│                            │                           │
+│  Persistent Mount: /data   │                           │
+│  ├── /data/chroma_db       │ (Vectors & Chunks)        │
+│  └── /data/uploads         │ (Ingested PDFs)           │
+└──────────────┬─────────────────────────────┬───────────┘
+               │                             │
+               ▼                             ▼
+┌──────────────────────────────┐ ┌──────────────────────────────┐
+│   Neon Managed PostgreSQL    │ │    Google Gemini 2.5 API     │
+│   (Serverless, SSL pooled)   │ │    (gemini-2.5-flash)        │
+└──────────────────────────────┘ └──────────────────────────────┘
 ```
 
+### 1. Free vs. Paid Render Plan Breakdown
+
+| Feature | Render Free Web Service | Render Paid Web Service (with Persistent Disk) |
+| :--- | :--- | :--- |
+| **Relational Data (PostgreSQL)** | Fully persistent in external Neon DB | Fully persistent in external Neon DB |
+| **Vector DB (ChromaDB)** | **Ephemeral**: embeddings reset when service sleeps/redeploys | **Durable**: stored on persistent disk (`/data/chroma_db`) |
+| **PDF Uploads** | **Ephemeral**: uploaded files reset on sleep/redeploy | **Durable**: stored on persistent disk (`/data/uploads`) |
+| **Sleep / Spin-down** | Spins down after 15 minutes of inactivity | Never sleeps; always responsive |
+| **Recommendation** | Suitable for testing and demos | **Required for full persistence** |
+
 ---
 
-## 27. Recommended Final Feature Set
+### 2. Step-by-Step Render Deployment
 
-1. **Multi-Source Knowledge Base**: PDF Documents + YouTube Video Lectures + Web URLs.
-2. **Multi-Resource RAG Study Workspace**: Grounded Q&A across single materials, selected materials, or entire library.
-3. **AI Study Suite**: Map-Reduce Summaries, Bullet/Cornell Notes, and Interactive Practice Quizzes.
-4. **Personalized Mastery Tracking**: Quiz attempt history and weak-topic identification on the Dashboard.
-5. **Polished Dashboard & Settings Portal**: Continue Studying banner, real-data progress summary, and dual-theme engine.
+#### Step A: Set up Managed PostgreSQL on Neon
+1. Create a free project at [neon.tech](https://neon.tech).
+2. Under **Dashboard > Connection Details**, copy the connection string.
+   - Choose **Connection pooling** (`postgresql://user:pass@ep-xyz-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require`).
+   - The application automatically normalizes `postgresql://` $\rightarrow$ `postgresql+psycopg2://` and configures connection pre-pinging with short recycling pools (`pool_recycle=300`) suitable for Neon serverless architecture.
+
+#### Step B: Create a Render Native Web Service
+1. Log in to [Render Dashboard](https://dashboard.render.com).
+2. Click **New +** $\rightarrow$ **Web Service**.
+3. Connect your GitHub repository: `sanskarchourasiya445/StudyPilot-AI`.
+4. Configure service settings:
+   - **Name**: `studypilot-ai`
+   - **Region**: Choose the region closest to your Neon database (e.g., Oregon or Ohio).
+   - **Runtime**: **Python**.
+   - **Build Command**:
+     ```bash
+     cd frontend && npm install && npm run build && cd .. && pip install -r requirements.txt
+     ```
+   - **Pre-Deploy Command** (under Advanced):
+     ```bash
+     alembic upgrade head
+     ```
+   - **Start Command**:
+     ```bash
+     uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+     ```
+   - **Health Check Path**: `/health`
+   - **Instance Type / Plan**:
+     - Select a paid plan (e.g. Starter) if you are attaching a persistent disk for durable ChromaDB/uploads.
+     - Select **Free** if testing without persistent disk.
+
+#### Step C: Attach Persistent Disk (For Paid Plans)
+If you are deploying on a paid plan with persistent disk:
+1. Under **Disks** $\rightarrow$ Click **Add Disk**.
+2. **Name**: `studypilot-data`
+3. **Mount Path**: `/data`
+4. **Size**: `10 GB` (or desired size)
+
+#### Step D: Configure Environment Variables
+Under **Environment Variables**, add the following:
+
+**Required Secrets:**
+| Key | Value Description |
+| :--- | :--- |
+| `DATABASE_URL` | Neon PostgreSQL pooled connection string with SSL (`sslmode=require`) |
+| `GEMINI_API_KEY` | Google AI Studio API key |
+| `JWT_SECRET` (or `SECRET_KEY`) | Secure 32+ character random hex string (`python -c "import secrets; print(secrets.token_hex(32))"`) |
+
+**Configuration Variables:**
+| Key | Default / Value | Description |
+| :--- | :--- | :--- |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Production Gemini LLM model |
+| `CHROMA_PERSIST_DIRECTORY` | `/data/chroma_db` | Vector store directory (falls back to local `data/chroma_db` if disk unattached) |
+| `UPLOAD_DIR` | `/data/uploads` | PDF storage directory (falls back to local `data/uploads` if disk unattached) |
+| `MAX_UPLOAD_SIZE_MB` | `50` | Maximum file upload size limit |
+
+#### Step E: Deploy
+1. Click **Create Web Service**.
+2. Render executes the build command: builds the React frontend with Vite and installs Python dependencies.
+3. Render runs `alembic upgrade head` before start.
+4. Uvicorn starts on `0.0.0.0:$PORT` serving both the SPA frontend and `/api` backend.
+5. Your application is live at `https://<service-name>.onrender.com`.
 
 ---
 
-## 28. Final Senior-Engineer Verdict
+### 3. Local Production Simulation (Without Docker)
 
-> **Verdict**: **StudyPilot AI is in a strong, highly functional state.**
-> 
-> Unlike typical college AI projects that rely on fake frontend mocks or simple API wrappers, StudyPilot AI possesses a **genuine, robust RAG architecture** with local embeddings, vector storage, multi-resource scoping, grounded citations, and full multi-tab study capabilities.
-> 
-> The codebase is clean, well-tested (32 passing automated tests), and beautifully styled. By focusing the remaining development time on **Quiz Attempt Persistence** and **Topic Mastery Tracking** (P0 items) while avoiding unnecessary complexity like agent swarms or WebRTC voice servers, StudyPilot AI will stand out as an **exceptional, high-scoring final year software engineering project**.
+You can simulate the production runtime locally using Uvicorn:
+
+```bash
+# 1. Build the production frontend
+cd frontend && npm install && npm run build && cd ..
+
+# 2. Run database migrations
+alembic upgrade head
+
+# 3. Start the application with Render-style start command
+uvicorn backend.app.main:app --host 0.0.0.0 --port 10000
+```
+
+Access the application in your browser at `http://localhost:10000` or test health at `http://localhost:10000/health`.
+
+---
+
+## Known Limitations
+
+- **Render Free Ephemeral Storage**: If deployed on the Render Free plan without a persistent disk, uploaded PDF files and local ChromaDB embeddings are ephemeral and will be wiped when the service spins down or restarts. Relational user data, conversations, notes, summaries, and quizzes in Neon PostgreSQL remain fully intact.
+- **YouTube Transcript Dependency**: YouTube ingestion relies on public captions or subtitles via `youtube-transcript-api`. Videos with disabled captions require the local Whisper fallback.
+- **External LLM Quota**: Generation speed and availability are subject to Google Gemini API quotas and rate limits.
+
+---
+
+## Security
+
+- **Authentication**: Stateless JWT bearer tokens with standard SHA-256 HMAC signatures.
+- **Password Security**: Passwords hashed using `bcrypt` via `passlib`.
+- **Multi-Tenant Scoping**: All vector queries and SQL transactions enforce `user_id` filtering at the repository and retriever layers to prevent cross-account data leakage.
+- **Strict Parameter Validation**: All incoming requests validated using Pydantic v2 schemas.
+- **Same-Origin Production**: Frontend and backend are served from the same origin on Render, eliminating cross-origin CORS exposure.
+
+---
+
+## Roadmap
+
+- [x] Render Native Python Web Service deployment configuration (`render.yaml`).
+- [x] Neon serverless PostgreSQL connection pooling and auto-migrations.
+- [x] Unified single-origin SPA serving with FastAPI.
+- [ ] Docker containerization as an optional alternative deployment target.
+- [ ] Asynchronous background job queue (Celery/ARQ) for heavy multi-document ingestion.
+- [ ] Export study notes to Markdown, PDF, and Anki flashcard format.
+
+
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

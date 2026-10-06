@@ -6,15 +6,20 @@ from backend.app.core.config import settings
 db_url = settings.DATABASE_URL
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 connect_args = {}
-engine_kwargs = {"pool_pre_ping": True}
+engine_kwargs = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,  # Recycle connections every 5 min for serverless PostgreSQL (Neon)
+}
 
 if db_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 else:
-    # Production PostgreSQL connection pooling
-    engine_kwargs.update({"pool_size": 10, "max_overflow": 20})
+    # Production connection pool sized for single container / serverless Neon
+    engine_kwargs.update({"pool_size": 5, "max_overflow": 10})
 
 engine = create_engine(
     db_url,

@@ -174,75 +174,87 @@ export function SettingsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {/* Light Mode Preview Card */}
                   <button
+                    type="button"
                     onClick={() => setTheme('light')}
-                    className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                    className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
                       theme === 'light'
-                        ? 'border-blue-500 bg-blue-600/10 ring-1 ring-blue-500/30'
-                        : 'border-white/[0.08] bg-[#0a0f18] hover:border-white/[0.15]'
+                        ? 'border-blue-500 bg-blue-600/10 ring-1 ring-blue-500/30 shadow-sm'
+                        : 'border-white/[0.08] bg-[#0a0f18] hover:border-blue-500/30'
                     }`}
                   >
-                    <div className="w-full h-20 bg-white border border-slate-200 rounded-xl p-2 mb-3 shadow-2xs flex flex-col justify-between">
+                    <div className="w-full h-20 bg-white border border-slate-200 rounded-xl p-2.5 mb-3 shadow-2xs flex flex-col justify-between">
                       <div className="h-2 w-12 bg-slate-900 rounded-full" />
                       <div className="space-y-1">
                         <div className="h-1.5 w-full bg-slate-200 rounded-full" />
                         <div className="h-1.5 w-3/4 bg-blue-500 rounded-full" />
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sun className="w-4 h-4 text-amber-400" />
-                        <span className="text-xs font-bold text-[#f5f7fa]">Light Mode</span>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Sun className="w-4 h-4 text-amber-500" />
+                          <span className="text-xs font-bold text-[#f5f7fa]">Light Mode</span>
+                        </div>
+                        {theme === 'light' && <Check className="w-4 h-4 text-blue-500" />}
                       </div>
-                      {theme === 'light' && <Check className="w-4 h-4 text-blue-400" />}
+                      <p className="text-[11px] text-[#9ca8ba]">Clean, crisp daytime interface</p>
                     </div>
                   </button>
 
                   {/* Dark Mode Preview Card */}
                   <button
+                    type="button"
                     onClick={() => setTheme('dark')}
-                    className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                    className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
                       theme === 'dark'
-                        ? 'border-blue-500 bg-blue-600/10 ring-1 ring-blue-500/30'
-                        : 'border-white/[0.08] bg-[#0a0f18] hover:border-white/[0.15]'
+                        ? 'border-blue-500 bg-blue-600/10 ring-1 ring-blue-500/30 shadow-sm'
+                        : 'border-white/[0.08] bg-[#0a0f18] hover:border-blue-500/30'
                     }`}
                   >
-                    <div className="w-full h-20 bg-[#07090d] border border-white/[0.08] rounded-xl p-2 mb-3 shadow-2xs flex flex-col justify-between">
+                    <div className="w-full h-20 bg-[#07090d] border border-white/[0.08] rounded-xl p-2.5 mb-3 shadow-2xs flex flex-col justify-between">
                       <div className="h-2 w-12 bg-slate-100 rounded-full" />
                       <div className="space-y-1">
                         <div className="h-1.5 w-full bg-slate-800 rounded-full" />
                         <div className="h-1.5 w-3/4 bg-blue-400 rounded-full" />
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Moon className="w-4 h-4 text-blue-400" />
-                        <span className="text-xs font-bold text-[#f5f7fa]">Dark Mode</span>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Moon className="w-4 h-4 text-blue-400" />
+                          <span className="text-xs font-bold text-[#f5f7fa]">Dark Mode</span>
+                        </div>
+                        {theme === 'dark' && <Check className="w-4 h-4 text-blue-500" />}
                       </div>
-                      {theme === 'dark' && <Check className="w-4 h-4 text-blue-400" />}
+                      <p className="text-[11px] text-[#9ca8ba]">Focused obsidian & navy palette</p>
                     </div>
                   </button>
 
                   {/* System Preference Preview Card */}
                   <button
+                    type="button"
                     onClick={() => setTheme('system')}
-                    className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                    className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
                       theme === 'system'
-                        ? 'border-blue-500 bg-blue-600/10 ring-1 ring-blue-500/30'
-                        : 'border-white/[0.08] bg-[#0a0f18] hover:border-white/[0.15]'
+                        ? 'border-blue-500 bg-blue-600/10 ring-1 ring-blue-500/30 shadow-sm'
+                        : 'border-white/[0.08] bg-[#0a0f18] hover:border-blue-500/30'
                     }`}
                   >
-                    <div className="w-full h-20 bg-gradient-to-r from-slate-900 to-[#07090d] border border-white/[0.08] rounded-xl p-2 mb-3 shadow-2xs flex flex-col justify-between">
+                    <div className="w-full h-20 bg-gradient-to-r from-slate-200 to-[#07090d] border border-white/[0.08] rounded-xl p-2.5 mb-3 shadow-2xs flex flex-col justify-between">
                       <div className="h-2 w-12 bg-blue-500 rounded-full" />
                       <div className="space-y-1">
-                        <div className="h-1.5 w-full bg-slate-800 rounded-full" />
+                        <div className="h-1.5 w-full bg-slate-400/50 rounded-full" />
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Monitor className="w-4 h-4 text-teal-400" />
-                        <span className="text-xs font-bold text-[#f5f7fa]">System Mode</span>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Monitor className="w-4 h-4 text-emerald-500" />
+                          <span className="text-xs font-bold text-[#f5f7fa]">System Mode</span>
+                        </div>
+                        {theme === 'system' && <Check className="w-4 h-4 text-blue-500" />}
                       </div>
-                      {theme === 'system' && <Check className="w-4 h-4 text-blue-400" />}
+                      <p className="text-[11px] text-[#9ca8ba]">Follows your operating system</p>
                     </div>
                   </button>
                 </div>

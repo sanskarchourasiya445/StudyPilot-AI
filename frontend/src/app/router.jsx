@@ -7,7 +7,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { ResourcesPage } from '../pages/ResourcesPage';
 import { ResourceDetailPage } from '../pages/ResourceDetailPage';
 import { WorkspacePage } from '../pages/WorkspacePage';
-import { ConversationsPage } from '../pages/ConversationsPage';
+import { HistoryPage } from '../pages/HistoryPage';
 import { SearchPage } from '../pages/SearchPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -24,7 +24,7 @@ function LegacyRouteRedirect({ tab }) {
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <Navigate to="/dashboard" replace />,
+    element: <Navigate to="/workspace" replace />,
   },
 
   // Public-only Routes (Auth)
@@ -47,8 +47,12 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
+        path: '/workspace',
+        element: <WorkspacePage />,
+      },
+      {
         path: '/dashboard',
-        element: <DashboardPage />,
+        element: <Navigate to="/workspace" replace />,
       },
       {
         path: '/resources',
@@ -57,10 +61,6 @@ export const router = createBrowserRouter([
       {
         path: '/resources/:id',
         element: <ResourceDetailPage />,
-      },
-      {
-        path: '/workspace',
-        element: <WorkspacePage />,
       },
       {
         path: '/summaries',
@@ -75,12 +75,16 @@ export const router = createBrowserRouter([
         element: <LegacyRouteRedirect tab="quiz" />,
       },
       {
+        path: '/history',
+        element: <HistoryPage />,
+      },
+      {
         path: '/conversations',
-        element: <ConversationsPage />,
+        element: <Navigate to="/history" replace />,
       },
       {
         path: '/search',
-        element: <SearchPage />,
+        element: <Navigate to="/resources" replace />,
       },
       {
         path: '/settings',

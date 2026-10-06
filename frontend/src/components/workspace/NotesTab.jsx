@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   NotebookPen,
   Sparkles,
@@ -21,9 +21,17 @@ export function NotesTab({
   setNoteStyle,
   onChangeStyle,
   onGenerateNotes,
+  isResourceProcessing = false,
+  isResourceFailed = false,
+  isResourceReady = true,
 }) {
   const [copied, setCopied] = useState(false);
   const updateStyle = onChangeStyle || setNoteStyle;
+
+  // Reset copy feedback when resource switches
+  useEffect(() => {
+    setCopied(false);
+  }, [selectedResource?.resource_id || selectedResource?.id]);
 
   const noteText = notes?.content || notes?.notes_content || '';
 
@@ -62,22 +70,59 @@ export function NotesTab({
     );
   }
 
+  if (isResourceProcessing) {
+    return (
+      <Card className="text-center py-16 my-4 bg-[#0a0f18] border-white/[0.08]">
+        <div className="w-12 h-12 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 mx-auto flex items-center justify-center mb-3.5">
+          <Sparkles className="w-6 h-6 text-blue-400 animate-spin" />
+        </div>
+        <h3 className="text-base font-bold text-[#f5f7fa]">
+          Resource is Still Processing
+        </h3>
+        <p className="text-xs text-[#9ca8ba] mt-1.5 mb-4 max-w-md mx-auto leading-relaxed">
+          &ldquo;{selectedResource.title || selectedResource.display_source || 'Study Material'}&rdquo; is being parsed and indexed into the vector store. Notes generation will become available immediately once processing is complete.
+        </p>
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+          <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+          Processing Ingestion...
+        </span>
+      </Card>
+    );
+  }
+
+  if (isResourceFailed) {
+    return (
+      <Card className="text-center py-16 my-4 bg-[#0a0f18] border-red-500/20">
+        <div className="w-12 h-12 rounded-2xl bg-red-600/10 text-red-400 border border-red-500/20 mx-auto flex items-center justify-center mb-3.5">
+          <NotebookPen className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-red-400">
+          Resource Processing Failed
+        </h3>
+        <p className="text-xs text-[#9ca8ba] mt-1.5 mb-2 max-w-md mx-auto leading-relaxed">
+          Ingestion for &ldquo;{selectedResource.title || selectedResource.display_source}&rdquo; encountered an error during parsing. Please check or re-upload the document.
+        </p>
+      </Card>
+    );
+  }
+
+  const hasNotesForCurrentStyle =
+    notes && notes.style === noteStyle && Boolean(noteText);
+
   return (
     <div className="space-y-4 my-4">
       {/* Note Style Switcher Bar */}
-      <Card className="p-4">
+      <Card className="p-4 bg-[#0a0f18] border-white/[0.08]">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span className="text-xs font-bold text-[#9ca8ba] uppercase tracking-wider">
               Note Style:
             </span>
-            <div className="flex bg-[#0a0f18] p-1 rounded-xl border border-white/[0.08]">
+            <div className="flex bg-[#07090d] p-1 rounded-xl border border-white/[0.08]">
               <button
-                onClick={() => {
-                  updateStyle?.('bullet');
-                  if (!notes || notes.style !== 'bullet') onGenerateNotes('bullet');
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                type="button"
+                onClick={() => updateStyle?.('bullet')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   noteStyle === 'bullet'
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'text-[#9ca8ba] hover:text-[#f5f7fa]'
@@ -88,11 +133,9 @@ export function NotesTab({
               </button>
 
               <button
-                onClick={() => {
-                  updateStyle?.('cornell');
-                  if (!notes || notes.style !== 'cornell') onGenerateNotes('cornell');
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                type="button"
+                onClick={() => updateStyle?.('cornell')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   noteStyle === 'cornell'
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'text-[#9ca8ba] hover:text-[#f5f7fa]'
@@ -104,7 +147,7 @@ export function NotesTab({
             </div>
           </div>
 
-          {notes && (
+          {hasNotesForCurrentStyle && (
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <Button
                 variant="outline"
@@ -118,7 +161,7 @@ export function NotesTab({
                 variant="secondary"
                 size="sm"
                 icon={RefreshCw}
-                onClick={() => onGenerateNotes(noteStyle)}
+                onClick={() => onGenerateNotes(noteStyle, true)}
                 isLoading={isGenerating}
               >
                 Regenerate
@@ -130,100 +173,97 @@ export function NotesTab({
 
       {/* Content Render Area */}
       {isLoadingNotes || isGenerating ? (
-        <Card className="p-8 space-y-4">
-          <Skeleton className="h-6 w-48 mb-4" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
+        <Card className="p-8 space-y-4 bg-[#0a0f18] border-white/[0.08]">
+          <div className="flex items-center gap-2.5 mb-2">
+            <Sparkles className="w-4 h-4 text-blue-400 animate-spin" />
+            <span className="text-xs font-bold text-[#f5f7fa]">
+              {isGenerating ? 'Structuring study notes with AI Engine...' : 'Loading cached study notes...'}
+            </span>
+          </div>
+          <Skeleton className="h-4 w-full bg-white/[0.05]" />
+          <Skeleton className="h-4 w-full bg-white/[0.05]" />
+          <Skeleton className="h-4 w-2/3 bg-white/[0.05]" />
         </Card>
-      ) : notes ? (
+      ) : hasNotesForCurrentStyle ? (
         notes.style === 'cornell' && parsedCornell ? (
           /* Cornell 2-Column Grid Layout */
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Left Column: Cues & Key Concepts (1 col) */}
-              <Card className="md:col-span-1 border-l-4 border-l-purple-500 bg-purple-50/20 dark:bg-purple-950/20">
-                <CardHeader>
-                  <CardTitle className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
-                    Cue Column / Key Concepts
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
-                    {parsedCornell.cues?.map((cue, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-purple-600 font-bold">&bull;</span>
-                        <span>{cue}</span>
-                      </li>
-                    )) || <li>No cues defined</li>}
-                  </ul>
-                </CardContent>
-              </Card>
+              <div className="md:col-span-1 rounded-2xl p-4 bg-[#0a0f18] border border-white/[0.08] border-l-2 border-l-blue-500">
+                <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-3">
+                  Recall Cues / Questions
+                </h4>
+                <ul className="space-y-2 text-xs font-medium text-[#f5f7fa]">
+                  {parsedCornell.cues?.map((cue, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-blue-500 font-bold">&bull;</span>
+                      <span>{cue}</span>
+                    </li>
+                  )) || <li className="text-[#9ca8ba]">No cues defined</li>}
+                </ul>
+              </div>
 
               {/* Right Column: Main Notes & Explanations (2 cols) */}
-              <Card className="md:col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Detailed Notes & Explanations
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="prose dark:prose-invert max-w-none text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
-                    {parsedCornell.notes || noteText}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="md:col-span-2 rounded-2xl p-5 bg-[#0a0f18] border border-white/[0.08]">
+                <h4 className="text-xs font-bold text-[#9ca8ba] uppercase tracking-wider mb-3">
+                  Lecture & Reading Notes
+                </h4>
+                <div className="text-xs md:text-sm text-[#f5f7fa] leading-relaxed whitespace-pre-wrap font-sans">
+                  {parsedCornell.notes || noteText}
+                </div>
+              </div>
             </div>
 
             {/* Bottom Summary Row */}
-            <Card className="border-t-4 border-t-blue-500 bg-blue-50/20 dark:bg-blue-950/20">
-              <CardHeader>
-                <CardTitle className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
-                  Summary & Key Takeaways
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-slate-800 dark:text-slate-200 font-sans leading-relaxed">
-                  {parsedCornell.summary ||
-                    'Summary generated from study material notes.'}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl p-4 bg-[#0a0f18] border border-white/[0.08] border-t-2 border-t-blue-500">
+              <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1.5">
+                Summary & Synthesis
+              </h4>
+              <p className="text-xs text-[#9ca8ba] font-sans leading-relaxed">
+                {parsedCornell.summary || 'Summary synthesized from study material.'}
+              </p>
+            </div>
           </div>
         ) : (
           /* Bullet Points Layout */
-          <Card className="p-6 md:p-8">
+          <div className="p-6 md:p-8 rounded-2xl bg-[#0a0f18] border border-white/[0.08]">
             <div className="flex items-center justify-between pb-4 border-b border-white/[0.07] mb-6">
-              <h3 className="text-lg font-bold text-[#f5f7fa]">
-                Study Notes: {selectedResource.title || selectedResource.display_source}
-              </h3>
+              <div>
+                <h3 className="text-base font-bold text-[#f5f7fa]">
+                  {selectedResource.title || selectedResource.display_source}
+                </h3>
+                <span className="text-[11px] text-[#9ca8ba]">
+                  Bullet Point Study Guide
+                </span>
+              </div>
             </div>
-            <div className="max-w-none text-sm text-[#f5f7fa] leading-relaxed whitespace-pre-wrap font-sans">
+            <div className="max-w-none text-xs md:text-sm text-[#f5f7fa] leading-relaxed whitespace-pre-wrap font-sans">
               {noteText}
             </div>
-          </Card>
+          </div>
         )
       ) : (
-        <Card className="text-center py-12">
+        <Card className="text-center py-16 bg-[#0a0f18] border-white/[0.08]">
           <div className="w-12 h-12 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 mx-auto flex items-center justify-center mb-3">
             <Sparkles className="w-6 h-6" />
           </div>
           <h3 className="text-base font-bold text-[#f5f7fa]">
-            No Notes Generated Yet
+            No {noteStyle === 'bullet' ? 'Bullet Point' : 'Cornell'} Notes Generated Yet
           </h3>
-          <p className="text-xs text-[#9ca8ba] mt-1 mb-6 max-w-md mx-auto">
+          <p className="text-xs text-[#9ca8ba] mt-1 mb-6 max-w-md mx-auto leading-relaxed">
             Click below to generate structured{' '}
-            {noteStyle === 'bullet' ? 'Bullet Point' : 'Cornell Format'} notes from "
-            {selectedResource.title || selectedResource.display_source}".
+            {noteStyle === 'bullet' ? 'Bullet Point' : 'Cornell Format'} notes for &ldquo;
+            {selectedResource.title || selectedResource.display_source}&rdquo;.
           </p>
           <Button
             variant="primary"
             size="md"
             icon={Sparkles}
-            onClick={() => onGenerateNotes(noteStyle)}
+            onClick={() => onGenerateNotes(noteStyle, false)}
             isLoading={isGenerating}
           >
-            Generate Study Notes
+            Generate {noteStyle === 'bullet' ? 'Bullet Notes' : 'Cornell Notes'}
           </Button>
         </Card>
       )}

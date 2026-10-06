@@ -11,19 +11,35 @@ export function ThemeProvider({ children }) {
     }
   });
 
+  const [resolvedTheme, setResolvedTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('studypilot_theme') || 'dark';
+      if (saved === 'system') {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      return saved === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
   useEffect(() => {
     const root = document.documentElement;
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
     const updateTheme = () => {
-      const isDark =
-        theme === 'dark' ||
-        (theme === 'system' && mediaQuery.matches);
+      const isSystem = theme === 'system';
+      const isDark = theme === 'dark' || (isSystem && mediaQuery.matches);
+      const effective = isDark ? 'dark' : 'light';
+
+      setResolvedTheme(effective);
 
       if (isDark) {
         root.classList.add('dark');
+        root.setAttribute('data-theme', 'dark');
       } else {
         root.classList.remove('dark');
+        root.setAttribute('data-theme', 'light');
       }
     };
 
@@ -45,8 +61,16 @@ export function ThemeProvider({ children }) {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme]);
 
+  const cycleTheme = () => {
+    setTheme((current) => {
+      if (current === 'dark') return 'light';
+      if (current === 'light') return 'system';
+      return 'dark';
+    });
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, isDark: resolvedTheme === 'dark', cycleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -7,8 +7,7 @@ export function useSendMessage() {
   const { addToast } = useToast();
 
   return useMutation({
-    mutationFn: ({ message, resource_id, conversation_id }) =>
-      chatApi.sendMessage({ message, resource_id, conversation_id }),
+    mutationFn: (variables) => chatApi.sendMessage(variables),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       if (data.conversation_id) {

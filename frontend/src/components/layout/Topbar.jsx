@@ -79,11 +79,13 @@ export function Topbar({
         <button
           onClick={toggleTheme}
           className="p-2 rounded-xl border border-white/[0.08] bg-[#0d1420] text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors"
-          title={`Theme: ${theme.toUpperCase()}`}
+          title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)} (Click to cycle)`}
           aria-label="Toggle Theme"
         >
           {theme === 'light' ? (
-            <Sun className="w-4 h-4 text-amber-400" />
+            <Sun className="w-4 h-4 text-amber-500" />
+          ) : theme === 'system' ? (
+            <Monitor className="w-4 h-4 text-emerald-400" />
           ) : (
             <Moon className="w-4 h-4 text-blue-400" />
           )}

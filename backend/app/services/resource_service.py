@@ -13,7 +13,8 @@ from backend.app.db.models.quiz import Quiz
 from backend.app.repositories.resource_repository import ResourceRepository
 from backend.app.schemas.resource import ResourceRead, YouTubeIngestRequest
 
-UPLOAD_DIR = os.path.join(os.getcwd(), "data", "uploads")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR") or os.path.join(os.getcwd(), "data", "uploads")
+MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_MB", 50)) * 1024 * 1024
 
 
 class ResourceNotFoundError(Exception):
@@ -77,6 +78,14 @@ class ResourceService:
         filename = os.path.basename(raw_filename)
         if not filename.lower().endswith(".pdf"):
             raise ValueError("Only PDF files are supported for file upload.")
+
+        # Validate file size against maximum permitted threshold
+        upload_file.file.seek(0, os.SEEK_END)
+        actual_size = upload_file.file.tell()
+        upload_file.file.seek(0)
+        if actual_size > MAX_UPLOAD_SIZE_BYTES:
+            limit_mb = MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)
+            raise ValueError(f"File size exceeds maximum permitted limit ({limit_mb} MB).")
 
         user_upload_dir = os.path.join(UPLOAD_DIR, user.id)
         os.makedirs(user_upload_dir, exist_ok=True)

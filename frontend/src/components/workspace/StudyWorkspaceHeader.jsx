@@ -8,10 +8,15 @@ import {
   Sparkles,
   PanelLeft,
   BookOpen,
+  MessageSquare,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { StudyResourceSelector } from './StudyResourceSelector';
 import { StudyTabs } from './StudyTabs';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { useTheme } from '../../context/ThemeContext';
 
 export function StudyWorkspaceHeader({
   activeTab,
@@ -32,11 +37,19 @@ export function StudyWorkspaceHeader({
   isDeleteLoading = false,
   // Mobile drawer controls
   onToggleMobileSidebar,
+  onToggleMobileConversations,
   onToggleMobileCitations,
   activeCitationsCount = 0,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  const { theme, setTheme } = useTheme();
+  const toggleTheme = () => {
+    if (theme === 'light') setTheme('dark');
+    else if (theme === 'dark') setTheme('system');
+    else setTheme('light');
+  };
 
   const getDeleteModalTitle = () => {
     switch (activeTab) {
@@ -103,6 +116,16 @@ export function StudyWorkspaceHeader({
       <div className="flex items-center gap-2 shrink-0">
         <StudyTabs activeTab={activeTab} onSelectTab={onSelectTab} />
 
+        {activeTab === 'chat' && onToggleMobileConversations && (
+          <button
+            onClick={onToggleMobileConversations}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 lg:hidden flex items-center gap-1 font-semibold text-xs"
+            title="Toggle Conversation History"
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+        )}
+
         {activeTab === 'chat' && onToggleMobileCitations && (
           <button
             onClick={onToggleMobileCitations}
@@ -113,6 +136,22 @@ export function StudyWorkspaceHeader({
             <span className="hidden sm:inline">({activeCitationsCount})</span>
           </button>
         )}
+
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-xl border border-white/[0.08] bg-[#0d1420] hover:bg-white/[0.05] text-slate-400 hover:text-white transition-colors"
+          title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)} (Click to cycle)`}
+          aria-label="Toggle theme"
+        >
+          {theme === 'light' ? (
+            <Sun className="w-4 h-4 text-amber-500" />
+          ) : theme === 'system' ? (
+            <Monitor className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <Moon className="w-4 h-4 text-blue-400" />
+          )}
+        </button>
 
         {/* Tab-Aware Contextual Action Menu [•••] */}
         <div className="relative">
@@ -134,7 +173,7 @@ export function StudyWorkspaceHeader({
                       if (onNewChat) onNewChat();
                       setMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-[#f5f7fa] hover:bg-white/[0.05] flex items-center gap-2"
+                    className="w-full text-left px-3 py-2 text-[#f5f7fa] hover:bg-white/[0.05] flex items-center gap-2 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5 text-blue-500" />
                     <span>New Chat Session</span>
@@ -145,9 +184,9 @@ export function StudyWorkspaceHeader({
                         setConfirmDeleteOpen(true);
                         setMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2 border-t border-slate-100 dark:border-slate-700/50 mt-1 pt-2"
+                      className="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 border-t border-white/[0.08] mt-1 pt-2 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                       <span>Delete Chat Thread</span>
                     </button>
                   )}
@@ -187,9 +226,9 @@ export function StudyWorkspaceHeader({
                         setConfirmDeleteOpen(true);
                         setMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2 border-t border-slate-100 dark:border-slate-700/50 mt-1 pt-2"
+                      className="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 border-t border-white/[0.08] mt-1 pt-2 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                       <span>Delete Summary</span>
                     </button>
                   )}
@@ -229,9 +268,9 @@ export function StudyWorkspaceHeader({
                         setConfirmDeleteOpen(true);
                         setMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2 border-t border-slate-100 dark:border-slate-700/50 mt-1 pt-2"
+                      className="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 border-t border-white/[0.08] mt-1 pt-2 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                       <span>Delete Notes</span>
                     </button>
                   )}
@@ -259,9 +298,9 @@ export function StudyWorkspaceHeader({
                         setConfirmDeleteOpen(true);
                         setMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2 border-t border-slate-100 dark:border-slate-700/50 mt-1 pt-2"
+                      className="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 border-t border-white/[0.08] mt-1 pt-2 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                       <span>Delete Quiz</span>
                     </button>
                   )}

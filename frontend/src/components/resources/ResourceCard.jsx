@@ -81,6 +81,12 @@ export function ResourceCard({ resource, onDelete }) {
             Chat
           </button>
           <button
+            onClick={() => navigate(`/workspace?resource_id=${resource.resource_id}&tab=summary`)}
+            className="px-2.5 py-1 rounded-lg bg-[#101827] border border-white/[0.08] hover:border-blue-500/40 text-xs font-semibold text-[#f5f7fa] hover:text-teal-400 transition-colors"
+          >
+            Summary
+          </button>
+          <button
             onClick={() => navigate(`/workspace?resource_id=${resource.resource_id}&tab=notes`)}
             className="px-2.5 py-1 rounded-lg bg-[#101827] border border-white/[0.08] hover:border-blue-500/40 text-xs font-semibold text-[#f5f7fa] hover:text-purple-400 transition-colors"
           >

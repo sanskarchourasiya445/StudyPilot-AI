@@ -40,7 +40,8 @@ export function ResourcesPage() {
   const handleDeleteConfirm = async () => {
     if (!deletingResource) return;
     try {
-      await deleteMutation.mutateAsync(deletingResource.resource_id);
+      const targetId = deletingResource.resource_id || deletingResource.id;
+      await deleteMutation.mutateAsync(targetId);
       setDeletingResource(null);
     } catch {
       // Toast handles error

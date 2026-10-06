@@ -17,6 +17,7 @@ export function StudyTabs({ activeTab, onSelectTab }) {
         return (
           <button
             key={tab.id}
+            data-tab-id={tab.id}
             onClick={() => onSelectTab(tab.id)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               isActive

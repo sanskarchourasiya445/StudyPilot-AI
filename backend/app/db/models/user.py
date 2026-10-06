@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import String, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.db.base import Base
 
 
@@ -33,3 +33,16 @@ class User(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    resources = relationship(
+        "Resource",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    conversations = relationship(
+        "Conversation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+

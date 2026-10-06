@@ -38,11 +38,15 @@ export function ChatThread({ messages = [], isLoading = false, onSelectCitation 
     <div className="h-full overflow-y-auto no-scrollbar p-4 md:p-6 space-y-6">
       {messages.map((msg, idx) => {
         const isUser = msg.sender === 'user' || msg.role === 'user';
-        const sources = msg.sources || (msg.metadata_json && msg.metadata_json.sources) || [];
+        const msgText = msg.content || msg.answer || msg.text || '';
+        const isNoAnswer = msgText.toLowerCase().includes('could not find this information');
+        const rawSources = msg.sources || (msg.metadata_json && msg.metadata_json.sources) || [];
+        const sources = isNoAnswer ? [] : rawSources;
 
         return (
           <div
             key={idx}
+            data-testid={isUser ? 'user-message' : 'assistant-message'}
             className={`flex items-start gap-3 max-w-3xl ${
               isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'
             }`}

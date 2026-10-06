@@ -4,6 +4,18 @@
 
 @layer base {
   :root {
+    color-scheme: light;
+    --bg-app: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-elevated: #f1f5f9;
+    --border-subtle: #e2e8f0;
+    --accent-blue: #2563eb;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+  }
+
+  html.dark, :root[data-theme="dark"] {
     color-scheme: dark;
     --bg-app: #07090d;
     --bg-surface: #0d1420;
@@ -16,8 +28,8 @@
   }
 
   body {
-    background-color: #07090d;
-    color: #f5f7fa;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
   }
 
   /* Hide scrollbar globally while preserving scroll functionality */
@@ -31,6 +43,120 @@
     width: 0px;
     height: 0px;
     background: transparent;
+  }
+}
+
+/* ==========================================================================
+   LIGHT MODE OVERRIDES FOR EXISTING DARK-FIRST TAILWIND UTILITY CLASSES
+   Preserves 100% of the tested dark theme when html.dark is present, while
+   giving a clean, high-contrast, professional SaaS palette in Light Mode.
+   ========================================================================== */
+html:not(.dark) {
+  /* 1. App Backgrounds */
+  .bg-\[\#07090d\] {
+    background-color: #f8fafc !important;
+  }
+  .bg-\[\#07090d\]\/80 {
+    background-color: rgba(248, 250, 252, 0.88) !important;
+  }
+  .bg-\[\#07090d\]\/60 {
+    background-color: rgba(241, 245, 249, 0.85) !important;
+  }
+  .bg-\[\#07090d\]\/40 {
+    background-color: rgba(241, 245, 249, 0.6) !important;
+  }
+  .bg-\[\#07090d\]\/30 {
+    background-color: rgba(241, 245, 249, 0.45) !important;
+  }
+
+  /* 2. Sidebars, Navigation & Inputs */
+  .bg-\[\#0a0f18\] {
+    background-color: #ffffff !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+  }
+
+  /* 3. Cards & Popovers */
+  .bg-\[\#0d1420\] {
+    background-color: #ffffff !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  }
+
+  /* 4. Elevated Surfaces */
+  .bg-\[\#101827\] {
+    background-color: #f1f5f9 !important;
+  }
+
+  /* 5. Typography */
+  .text-\[\#f5f7fa\] {
+    color: #0f172a !important;
+  }
+  .text-\[\#9ca8ba\] {
+    color: #475569 !important;
+  }
+  .text-\[\#667085\] {
+    color: #64748b !important;
+  }
+
+  /* 6. Subtle White Translucent Borders -> Soft Gray Borders */
+  [class*="border-white\/"] {
+    border-color: #e2e8f0 !important;
+  }
+
+  /* 7. Subtle White Translucent Backgrounds */
+  .bg-white\/\[0\.02\],
+  .bg-white\/\[0\.03\],
+  .bg-white\/\[0\.04\],
+  .bg-white\/\[0\.05\] {
+    background-color: #f8fafc !important;
+  }
+  .bg-white\/\[0\.06\],
+  .bg-white\/\[0\.07\],
+  .bg-white\/\[0\.08\],
+  .bg-white\/\[0\.1\] {
+    background-color: #f1f5f9 !important;
+  }
+
+  /* 8. Hover states */
+  .hover\:bg-white\/\[0\.03\]:hover,
+  .hover\:bg-white\/\[0\.04\]:hover,
+  .hover\:bg-white\/\[0\.05\]:hover,
+  .hover\:bg-white\/\[0\.06\]:hover,
+  .hover\:bg-white\/\[0\.1\]:hover {
+    background-color: #f1f5f9 !important;
+  }
+  .hover\:text-white:hover {
+    color: #0f172a !important;
+  }
+  .hover\:text-\[\#f5f7fa\]:hover {
+    color: #0f172a !important;
+  }
+
+  /* 9. Form Controls (Input, Textarea, Select) */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+  textarea,
+  select {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3b8 !important;
+  }
+
+  /* 10. Chat Message Bubbles & Citations in Light Mode */
+  .bg-blue-600\/10 {
+    background-color: #eff6ff !important;
+  }
+  .border-blue-500\/20,
+  .border-blue-500\/30 {
+    border-color: #bfdbfe !important;
+  }
+  
+  /* 11. Modal dialog backdrops */
+  .bg-black\/70,
+  .bg-black\/80 {
+    background-color: rgba(15, 23, 42, 0.45) !important;
   }
 }
 

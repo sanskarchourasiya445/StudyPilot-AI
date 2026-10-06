@@ -42,7 +42,7 @@ class Resource(Base):
         nullable=False,
     )
 
-    user = relationship("User", backref="resources")
+    user = relationship("User", back_populates="resources")
 
     @property
     def metadata_dict(self) -> Dict[str, Any]:

@@ -11,6 +11,9 @@ export function SummaryTab({
   isLoadingSummary,
   isGenerating,
   onGenerateSummary,
+  isResourceProcessing = false,
+  isResourceFailed = false,
+  isResourceReady = true,
 }) {
   const summaryText = summary?.summary || summary?.summary_text || '';
 
@@ -25,6 +28,42 @@ export function SummaryTab({
         </h3>
         <p className="text-xs text-[#9ca8ba] mt-1.5 mb-2 max-w-md mx-auto leading-relaxed">
           AI Summarization generates an in-depth map-reduce digest for an individual document or video. Please select a specific resource from the top selector.
+        </p>
+      </div>
+    );
+  }
+
+  if (isResourceProcessing) {
+    return (
+      <div className="text-center py-16 my-4 p-8 rounded-2xl bg-[#0d1420] border border-white/[0.07]">
+        <div className="w-12 h-12 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 mx-auto flex items-center justify-center mb-3.5">
+          <Sparkles className="w-6 h-6 text-blue-400 animate-spin" />
+        </div>
+        <h3 className="text-base font-bold text-[#f5f7fa]">
+          Resource is Still Processing
+        </h3>
+        <p className="text-xs text-[#9ca8ba] mt-1.5 mb-4 max-w-md mx-auto leading-relaxed">
+          &ldquo;{selectedResource.title || selectedResource.display_source || 'Study Material'}&rdquo; is being parsed and indexed into the vector store. Summary generation will become available immediately once processing is complete.
+        </p>
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+          <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+          Processing Ingestion...
+        </span>
+      </div>
+    );
+  }
+
+  if (isResourceFailed) {
+    return (
+      <div className="text-center py-16 my-4 p-8 rounded-2xl bg-[#0d1420] border border-red-500/20">
+        <div className="w-12 h-12 rounded-2xl bg-red-600/10 text-red-400 border border-red-500/20 mx-auto flex items-center justify-center mb-3.5">
+          <Layers className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-red-400">
+          Resource Processing Failed
+        </h3>
+        <p className="text-xs text-[#9ca8ba] mt-1.5 mb-2 max-w-md mx-auto leading-relaxed">
+          Ingestion for &ldquo;{selectedResource.title || selectedResource.display_source}&rdquo; encountered an error during parsing. Please check or re-upload the document.
         </p>
       </div>
     );

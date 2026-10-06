@@ -23,7 +23,7 @@ export function useGenerateSummary() {
     onSuccess: (data, variables) => {
       queryClient.setQueryData(['summary', variables.resourceId], data);
       queryClient.invalidateQueries({ queryKey: ['resources'] });
-      queryClient.invalidateQueries({ queryKey: ['resource', variables.resourceId] });
+      queryClient.invalidateQueries({ queryKey: ['resources', variables.resourceId] });
       addToast('Summary generated successfully!', 'success');
     },
     onError: (error) => {
@@ -52,10 +52,8 @@ export function useGenerateNotes() {
       studyApi.generateNotes(resourceId, style, forceRegenerate),
     onSuccess: (data, variables) => {
       queryClient.setQueryData(['notes', variables.resourceId, variables.style], data);
-      queryClient.setQueryData(['notes', variables.resourceId, 'bullet'], data.style === 'bullet' ? data : undefined);
-      queryClient.setQueryData(['notes', variables.resourceId, 'cornell'], data.style === 'cornell' ? data : undefined);
       queryClient.invalidateQueries({ queryKey: ['resources'] });
-      queryClient.invalidateQueries({ queryKey: ['resource', variables.resourceId] });
+      queryClient.invalidateQueries({ queryKey: ['resources', variables.resourceId] });
       addToast('Study notes generated successfully!', 'success');
     },
     onError: (error) => {
@@ -88,7 +86,7 @@ export function useGenerateQuiz() {
         return [data, ...list.filter((q) => q.id !== data.id)];
       });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
-      queryClient.invalidateQueries({ queryKey: ['resource', variables.resourceId] });
+      queryClient.invalidateQueries({ queryKey: ['resources', variables.resourceId] });
       addToast('Practice quiz generated!', 'success');
     },
     onError: (error) => {

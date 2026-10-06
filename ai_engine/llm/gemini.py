@@ -152,7 +152,7 @@ class GeminiLLM:
                     logger.error("Gemini model not found (%s): %s", self.model_name, exc)
                     raise LLMGenerationError(
                         f"Configured Gemini model '{self.model_name}' was not found. "
-                        "Please check GEMINI_MODEL in your configuration (e.g. 'gemini-1.5-flash')."
+                        "Please check GEMINI_MODEL in your configuration (e.g. 'gemini-2.5-flash')."
                     ) from exc
 
                 is_retryable = exc.code in GEMINI_RETRYABLE_STATUS_CODES

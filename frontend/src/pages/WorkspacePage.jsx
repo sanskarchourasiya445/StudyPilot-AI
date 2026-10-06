@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 import { useResources } from '../hooks/useResources';
 import {
   useConversations,
@@ -35,7 +34,7 @@ export function WorkspacePage() {
   // Extract query parameters
   const rawResourceId = searchParams.get('resource_id');
   const rawResourceIds = searchParams.get('resource_ids');
-  const rawConversationId = searchParams.get('conversation_id');
+  const rawConversationId = searchParams.get('conversation_id') || searchParams.get('conversation');
   const rawTab = searchParams.get('tab') || 'chat';
 
   const queryResourceId =
@@ -62,11 +61,47 @@ export function WorkspacePage() {
     return { mode: 'all', resource_ids: [] };
   });
 
+  // Synchronize scope whenever query parameters change
+  useEffect(() => {
+    if (rawResourceIds) {
+      const ids = rawResourceIds.split(',').filter(Boolean);
+      setScope((prev) => {
+        const prevIds = prev.resource_ids || [];
+        if (
+          prev.mode === 'selected' &&
+          prevIds.length === ids.length &&
+          ids.every((id, idx) => id === prevIds[idx])
+        ) {
+          return prev;
+        }
+        return { mode: 'selected', resource_ids: ids };
+      });
+    } else if (queryResourceId) {
+      setScope((prev) => {
+        if (
+          prev.mode === 'selected' &&
+          prev.resource_ids?.length === 1 &&
+          prev.resource_ids[0] === queryResourceId
+        ) {
+          return prev;
+        }
+        return { mode: 'selected', resource_ids: [queryResourceId] };
+      });
+    }
+  }, [queryResourceId, rawResourceIds]);
+
   const [activeConversationId, setActiveConversationId] = useState(queryConversationId);
+
+  useEffect(() => {
+    if (queryConversationId && queryConversationId !== activeConversationId) {
+      setActiveConversationId(queryConversationId);
+    }
+  }, [queryConversationId]);
   const [activeCitations, setActiveCitations] = useState([]);
   const [selectedCitationIdx, setSelectedCitationIdx] = useState(null);
 
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileConvSidebarOpen, setMobileConvSidebarOpen] = useState(false);
   const [mobileCitationsOpen, setMobileCitationsOpen] = useState(false);
 
   // Local Chat message thread state
@@ -74,7 +109,7 @@ export function WorkspacePage() {
   const [noteStyle, setNoteStyle] = useState('bullet');
 
   // Queries
-  const { data: resources = [] } = useResources();
+  const { data: resources = [], isSuccess: isResourcesLoaded } = useResources();
   const { data: conversations = [] } = useConversations();
   const { data: serverMessages = [], isLoading: isLoadingMessages } =
     useConversationMessages(activeConversationId);
@@ -85,29 +120,50 @@ export function WorkspacePage() {
       ? scope.resource_ids[0]
       : null;
 
-  const selectedResource = resources.find(
-    (r) => (r.resource_id || r.id) === singleResourceId
-  );
+  // Find resource in loaded list
+  const selectedResource = singleResourceId
+    ? resources.find((r) => (r.resource_id || r.id) === singleResourceId) || null
+    : null;
 
-  // Study Tool Queries (only active when relevant and not known to be absent)
-  const hasSummary = selectedResource ? selectedResource.has_summary : undefined;
-  const hasNotes = selectedResource ? selectedResource.has_notes : undefined;
-  const hasQuiz = selectedResource ? selectedResource.has_quiz : undefined;
+  // If a single resource was requested in URL but doesn't exist in the loaded resource list (e.g. was deleted),
+  // clean up URL search params and fall back to 'all' scope to prevent 404 errors.
+  useEffect(() => {
+    if (isResourcesLoaded && singleResourceId && !selectedResource) {
+      setScope({ mode: 'all', resource_ids: [] });
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('resource_id');
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [isResourcesLoaded, singleResourceId, selectedResource, setSearchParams]);
 
+  const resourceStatus = selectedResource?.status;
+  const isResourceReady = resourceStatus === 'ready';
+  const isResourceProcessing = resourceStatus === 'processing' || resourceStatus === 'pending';
+  const isResourceFailed = resourceStatus === 'failed';
+
+  // Study Tool Queries (only active when relevant and resource is genuinely ready)
   const shouldFetchSummary =
+    activeTab === 'summary' &&
     !!singleResourceId &&
-    hasSummary !== false &&
-    (activeTab === 'summary' || hasSummary === true);
+    isResourceReady &&
+    selectedResource?.has_summary !== false;
 
   const shouldFetchNotes =
+    activeTab === 'notes' &&
     !!singleResourceId &&
-    hasNotes !== false &&
-    (activeTab === 'notes' || hasNotes === true);
+    isResourceReady &&
+    selectedResource?.has_notes !== false;
 
   const shouldFetchQuizzes =
+    activeTab === 'quiz' &&
     !!singleResourceId &&
-    hasQuiz !== false &&
-    (activeTab === 'quiz' || hasQuiz === true);
+    isResourceReady &&
+    selectedResource?.has_quiz !== false;
 
   const { data: summary, isLoading: isLoadingSummary } = useSummary(singleResourceId, {
     enabled: shouldFetchSummary,
@@ -176,8 +232,23 @@ export function WorkspacePage() {
   // Handlers for Scope Change
   const handleChangeScope = (newScope) => {
     setScope(newScope);
+    // If an existing conversation had a different resource scope, start a fresh conversation
+    // so old scope and context do not overwrite or distort the newly selected study scope
+    if (activeConversationObj) {
+      const convResId = activeConversationObj.resource_id;
+      const newResId =
+        newScope.mode === 'selected' && newScope.resource_ids.length === 1
+          ? newScope.resource_ids[0]
+          : null;
+      if (activeConversationObj.scope_mode !== newScope.mode || convResId !== newResId) {
+        setActiveConversationId(null);
+        setLocalMessages([]);
+        setActiveCitations([]);
+      }
+    }
     setSearchParams((prev) => {
       const p = new URLSearchParams(prev);
+      p.delete('conversation_id');
       if (newScope.mode === 'all') {
         p.delete('resource_id');
         p.delete('resource_ids');
@@ -237,15 +308,23 @@ export function WorkspacePage() {
         conversation_id: activeConversationId,
       });
 
+      const isNoAnswer =
+        result.answer &&
+        result.answer.toLowerCase().includes('could not find this information');
+
+      const cleanSources = isNoAnswer ? [] : (result.sources || []);
+
       const assistantMsg = {
         sender: 'assistant',
         content: result.answer,
-        sources: result.sources || [],
+        sources: cleanSources,
       };
       setLocalMessages((prev) => [...prev, assistantMsg]);
 
-      if (result.sources && result.sources.length > 0) {
-        setActiveCitations(result.sources);
+      if (cleanSources.length > 0) {
+        setActiveCitations(cleanSources);
+      } else if (isNoAnswer) {
+        setActiveCitations([]);
       }
 
       const newConvId = result.conversation_id || result.id;
@@ -276,7 +355,7 @@ export function WorkspacePage() {
   };
 
   const handleGenerateSummary = async (forceRegenerate = false) => {
-    if (!singleResourceId) return;
+    if (!singleResourceId || !isResourceReady) return;
     try {
       await generateSummaryMutation.mutateAsync({
         resourceId: singleResourceId,
@@ -293,7 +372,7 @@ export function WorkspacePage() {
   };
 
   const handleGenerateNotes = async (style, forceRegenerate = false) => {
-    if (!singleResourceId) return;
+    if (!singleResourceId || !isResourceReady) return;
     try {
       await generateNotesMutation.mutateAsync({
         resourceId: singleResourceId,
@@ -311,7 +390,7 @@ export function WorkspacePage() {
   };
 
   const handleGenerateQuiz = async ({ questionCount, difficulty }) => {
-    if (!singleResourceId) return null;
+    if (!singleResourceId || !isResourceReady) return null;
     try {
       const res = await generateQuizMutation.mutateAsync({
         resourceId: singleResourceId,
@@ -334,7 +413,13 @@ export function WorkspacePage() {
   );
 
   return (
-    <AppLayout hideMainScrollbar>
+    <AppLayout
+      fullBleed
+      hideTopbar
+      title="Study Workspace"
+      mobileSidebarOpen={mobileNavOpen}
+      setMobileSidebarOpen={setMobileNavOpen}
+    >
       <div className="flex flex-col h-full overflow-hidden bg-[#07090d]">
         {/* Compact Workspace Header */}
         <StudyWorkspaceHeader
@@ -350,7 +435,8 @@ export function WorkspacePage() {
           onNewChat={handleNewChat}
           onDeleteConversation={() => handleDeleteConversation(activeConversationObj)}
           activeConversation={activeConversationObj}
-          onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+          onToggleMobileSidebar={() => setMobileNavOpen(!mobileNavOpen)}
+          onToggleMobileConversations={() => setMobileConvSidebarOpen(!mobileConvSidebarOpen)}
           onToggleMobileCitations={() => setMobileCitationsOpen(!mobileCitationsOpen)}
           activeCitationsCount={activeCitations.length}
         />
@@ -364,15 +450,22 @@ export function WorkspacePage() {
               onSelectConversation={handleSelectConversation}
               onNewChat={handleNewChat}
               onDeleteConversation={handleDeleteConversation}
+              resources={resources}
+              scope={scope}
               messages={localMessages}
               isLoadingMessages={isLoadingMessages}
               isSending={sendMessageMutation.isPending}
               onSendMessage={handleSendMessage}
               citations={activeCitations}
               selectedCitationIndex={selectedCitationIdx}
-              onSelectCitation={(source, idx) => setSelectedCitationIdx(idx)}
-              mobileSidebarOpen={mobileSidebarOpen}
-              onCloseMobileSidebar={() => setMobileSidebarOpen(false)}
+              onSelectCitation={(idx, sources) => {
+                setSelectedCitationIdx(idx);
+                if (sources && sources.length > 0) {
+                  setActiveCitations(sources);
+                }
+              }}
+              mobileSidebarOpen={mobileConvSidebarOpen}
+              onCloseMobileSidebar={() => setMobileConvSidebarOpen(false)}
               mobileCitationsOpen={mobileCitationsOpen}
               onCloseMobileCitations={() => setMobileCitationsOpen(false)}
             />
@@ -386,6 +479,9 @@ export function WorkspacePage() {
                 isLoadingSummary={isLoadingSummary}
                 isGenerating={generateSummaryMutation.isPending}
                 onGenerateSummary={handleGenerateSummary}
+                isResourceProcessing={isResourceProcessing}
+                isResourceFailed={isResourceFailed}
+                isResourceReady={isResourceReady}
               />
             </div>
           )}
@@ -401,6 +497,9 @@ export function WorkspacePage() {
                 noteStyle={noteStyle}
                 setNoteStyle={setNoteStyle}
                 onChangeStyle={setNoteStyle}
+                isResourceProcessing={isResourceProcessing}
+                isResourceFailed={isResourceFailed}
+                isResourceReady={isResourceReady}
               />
             </div>
           )}
@@ -413,6 +512,9 @@ export function WorkspacePage() {
                 isLoadingQuizzes={isLoadingQuizzes}
                 isGenerating={generateQuizMutation.isPending}
                 onGenerateQuiz={handleGenerateQuiz}
+                isResourceProcessing={isResourceProcessing}
+                isResourceFailed={isResourceFailed}
+                isResourceReady={isResourceReady}
               />
             </div>
           )}

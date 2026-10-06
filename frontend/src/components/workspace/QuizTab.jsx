@@ -22,6 +22,9 @@ export function QuizTab({
   isLoadingQuizzes,
   isGenerating,
   onGenerateQuiz,
+  isResourceProcessing = false,
+  isResourceFailed = false,
+  isResourceReady = true,
 }) {
   const [difficulty, setDifficulty] = useState('medium');
   const [questionCount, setQuestionCount] = useState(5);
@@ -34,6 +37,15 @@ export function QuizTab({
   const [masteryResult, setMasteryResult] = useState(null);
 
   const submitQuizMutation = useSubmitQuizResult();
+
+  // Reset quiz progress whenever the selected resource switches
+  useEffect(() => {
+    setUserAnswers({});
+    setSubmittedQuestions({});
+    setQuizCompleted(false);
+    setCurrentQuestionIdx(0);
+    setMasteryResult(null);
+  }, [selectedResource?.resource_id || selectedResource?.id]);
 
   useEffect(() => {
     if (quizzes.length > 0) {
@@ -156,6 +168,42 @@ export function QuizTab({
     );
   }
 
+  if (isResourceProcessing) {
+    return (
+      <Card className="text-center py-16 my-4 bg-[#0a0f18] border-white/[0.08]">
+        <div className="w-12 h-12 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 mx-auto flex items-center justify-center mb-3.5">
+          <Sparkles className="w-6 h-6 text-blue-400 animate-spin" />
+        </div>
+        <h3 className="text-base font-bold text-[#f5f7fa]">
+          Resource is Still Processing
+        </h3>
+        <p className="text-xs text-[#9ca8ba] mt-1.5 mb-4 max-w-md mx-auto leading-relaxed">
+          &ldquo;{selectedResource.title || selectedResource.display_source || 'Study Material'}&rdquo; is being parsed and indexed into the vector store. Quiz generation will become available immediately once processing is complete.
+        </p>
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+          <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+          Processing Ingestion...
+        </span>
+      </Card>
+    );
+  }
+
+  if (isResourceFailed) {
+    return (
+      <Card className="text-center py-16 my-4 bg-[#0a0f18] border-red-500/20">
+        <div className="w-12 h-12 rounded-2xl bg-red-600/10 text-red-400 border border-red-500/20 mx-auto flex items-center justify-center mb-3.5">
+          <HelpCircle className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-red-400">
+          Resource Processing Failed
+        </h3>
+        <p className="text-xs text-[#9ca8ba] mt-1.5 mb-2 max-w-md mx-auto leading-relaxed">
+          Ingestion for &ldquo;{selectedResource.title || selectedResource.display_source}&rdquo; encountered an error during parsing. Please check or re-upload the document.
+        </p>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-4 my-4">
       {/* Quiz Configuration Controls Bar */}
@@ -228,24 +276,58 @@ export function QuizTab({
         </Card>
       ) : quizCompleted ? (
         /* Quiz Completion Final Score Screen */
-        <Card className="max-w-lg mx-auto text-center p-8">
+        <Card className="max-w-xl mx-auto text-center p-8 bg-[#0a0f18] border-white/[0.08]">
           <div className="w-16 h-16 rounded-3xl bg-blue-600/10 text-blue-400 border border-blue-500/20 mx-auto flex items-center justify-center mb-4 shadow-xs">
-            <Award className="w-8 h-8" />
+            <Award className="w-8 h-8 text-blue-400" />
           </div>
           <h3 className="text-2xl font-extrabold text-[#f5f7fa]">
-            Quiz Completed!
+            Quiz Completed
           </h3>
           <p className="text-xs text-[#9ca8ba] mt-1 mb-6">
-            Review your score for "{selectedResource.title || selectedResource.display_source}".
+            Performance evaluation for &ldquo;{selectedResource.title || selectedResource.display_source}&rdquo;
           </p>
 
-          <div className="bg-[#07090d] p-6 rounded-2xl border border-white/[0.07] mb-6">
-            <div className="text-4xl font-extrabold text-blue-400 mb-1">
-              {scorePercentage}%
+          {/* Primary Score Metric */}
+          <div className="bg-[#07090d] p-6 rounded-2xl border border-white/[0.07] mb-6 space-y-3">
+            <div className="text-5xl font-extrabold tracking-tight text-blue-400">
+              {masteryResult?.percentage !== undefined ? `${masteryResult.percentage}%` : `${scorePercentage}%`}
             </div>
             <p className="text-xs font-semibold text-[#9ca8ba]">
-              You answered {correctCount} out of {questions.length} questions correctly.
+              {masteryResult
+                ? `Recorded ${masteryResult.score} of ${masteryResult.total_questions} correct`
+                : `Answered ${correctCount} of ${questions.length} questions correctly`}
             </p>
+
+            {/* Backend Evaluated Status & Feedback */}
+            {submitQuizMutation.isPending && (
+              <div className="text-xs text-blue-400 animate-pulse pt-2 border-t border-white/[0.05]">
+                Persisting quiz attempt & evaluating mastery with backend...
+              </div>
+            )}
+
+            {masteryResult && (
+              <div className="pt-3 border-t border-white/[0.06] text-left space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Backend Evaluation:
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    masteryResult.mastery_status === 'Mastered'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : masteryResult.mastery_status === 'Competent'
+                      ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                      : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {masteryResult.mastery_status || 'Evaluated'}
+                  </span>
+                </div>
+                {masteryResult.recommendation && (
+                  <p className="text-xs text-[#9ca8ba] leading-relaxed bg-[#0a0f18] p-3 rounded-xl border border-white/[0.05]">
+                    &ldquo;{masteryResult.recommendation}&rdquo;
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-center gap-3">
@@ -308,6 +390,7 @@ export function QuizTab({
               return (
                 <div
                   key={optIdx}
+                  data-testid={`quiz-option-${optIdx}`}
                   onClick={() => handleSelectOption(optIdx)}
                   className={`p-4 rounded-xl border text-sm flex items-center justify-between cursor-pointer transition-all ${optionStyle}`}
                 >
@@ -360,13 +443,19 @@ export function QuizTab({
               <Button
                 variant="primary"
                 size="sm"
+                data-testid="submit-answer-btn"
                 onClick={handleSubmitAnswer}
                 disabled={userAnswers[currentQuestionIdx] === undefined}
               >
                 Submit Answer
               </Button>
             ) : (
-              <Button variant="primary" size="sm" onClick={handleNext}>
+              <Button
+                variant="primary"
+                size="sm"
+                data-testid="next-question-btn"
+                onClick={handleNext}
+              >
                 <span>
                   {currentQuestionIdx === questions.length - 1 ? 'Finish Quiz' : 'Next Question'}
                 </span>

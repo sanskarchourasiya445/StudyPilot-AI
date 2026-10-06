@@ -13,6 +13,7 @@ export function ChatTab({
   resources = [],
   selectedResourceId,
   onSelectResource,
+  scope,
   messages,
   localMessages = [],
   isLoadingMessages = false,
@@ -37,7 +38,7 @@ export function ChatTab({
   const handleCloseCitations = onCloseMobileCitations || (() => setMobileCitationsOpen && setMobileCitationsOpen(false));
 
   return (
-    <div className="h-[calc(100vh-145px)] min-h-[500px] flex rounded-2xl border border-white/[0.07] bg-[#07090d] overflow-hidden shadow-xs relative">
+    <div className="h-full flex bg-[#07090d] overflow-hidden relative">
       {/* Panel 1: Left Conversation History Sidebar (Desktop) */}
       <div className="hidden lg:block w-64 h-full shrink-0 border-r border-white/[0.07]">
         <ConversationSidebar
@@ -62,7 +63,12 @@ export function ChatTab({
           />
         </div>
 
-        <MessageComposer onSend={onSendMessage} isLoading={isSending} />
+        <MessageComposer
+          onSend={onSendMessage}
+          isLoading={isSending}
+          scope={scope}
+          resources={resources}
+        />
       </div>
 
       {/* Panel 3: Right Grounded Citations Drawer (Desktop) */}

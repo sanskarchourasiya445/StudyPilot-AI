@@ -35,16 +35,19 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Where raw source documents (PDFs, TXT files) are dropped for ingestion.
-DOCUMENTS_DIR = PROJECT_ROOT / "data" / "documents"
+_docs_env = os.getenv("DOCUMENTS_DIR") or os.getenv("UPLOAD_DIR")
+DOCUMENTS_DIR = Path(_docs_env).resolve() if _docs_env else PROJECT_ROOT / "data" / "documents"
 
 # Where downloaded/converted audio (from YouTube or uploaded video/audio
 # files) is written before transcription. Kept separate from
 # DOCUMENTS_DIR because these are intermediate artifacts, not source
 # documents themselves.
-AUDIO_DOWNLOAD_DIR = PROJECT_ROOT / "data" / "audio"
+_audio_env = os.getenv("AUDIO_DOWNLOAD_DIR")
+AUDIO_DOWNLOAD_DIR = Path(_audio_env).resolve() if _audio_env else PROJECT_ROOT / "data" / "audio"
 
 # Where the persisted Chroma collection lives on disk.
-VECTOR_DB_DIR = PROJECT_ROOT / "data" / "chroma_db"
+_chroma_env = os.getenv("CHROMA_PERSIST_DIRECTORY")
+VECTOR_DB_DIR = Path(_chroma_env).resolve() if _chroma_env else PROJECT_ROOT / "data" / "chroma_db"
 
 SUPPORTED_FILE_EXTENSIONS = (".pdf", ".txt")
 
@@ -111,7 +114,7 @@ LAMBDA_MULT = 0.5  # 1.0 = pure relevance, 0.0 = pure diversity
 # ---------------------------------------------------------------------
 # LLM (Gemini)
 # ---------------------------------------------------------------------
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_DEFAULT_TEMPERATURE = 0.3
 
 # ---------------------------------------------------------------------
