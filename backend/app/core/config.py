@@ -1,6 +1,10 @@
+import os
+from pathlib import Path
 from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
@@ -66,6 +70,30 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "data/uploads"
     MAX_UPLOAD_SIZE_MB: int = 50
     FRONTEND_DIST_DIR: str = "frontend/dist"
+
+    @property
+    def resolved_upload_dir(self) -> Path:
+        posix_val = self.UPLOAD_DIR.replace("\\", "/").strip()
+        if posix_val.startswith("/data/"):
+            sub = posix_val.removeprefix("/data/")
+            if not (os.path.exists("/data") and os.access("/data", os.W_OK)):
+                return (PROJECT_ROOT / "data" / sub).resolve()
+        p = Path(self.UPLOAD_DIR)
+        if not p.is_absolute() and not posix_val.startswith("/"):
+            return (PROJECT_ROOT / p).resolve()
+        return p.resolve()
+
+    @property
+    def resolved_chroma_dir(self) -> Path:
+        posix_val = self.CHROMA_PERSIST_DIRECTORY.replace("\\", "/").strip()
+        if posix_val.startswith("/data/"):
+            sub = posix_val.removeprefix("/data/")
+            if not (os.path.exists("/data") and os.access("/data", os.W_OK)):
+                return (PROJECT_ROOT / "data" / sub).resolve()
+        p = Path(self.CHROMA_PERSIST_DIRECTORY)
+        if not p.is_absolute() and not posix_val.startswith("/"):
+            return (PROJECT_ROOT / p).resolve()
+        return p.resolve()
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -306,16 +306,19 @@ cd frontend && npm run build
 
 ---
 
-## Production Deployment Guide (Vercel Frontend + Render Backend)
+## Production Deployment Guide (Vercel Frontend + Render Backend - Free Tier)
 
 StudyPilot AI uses a decoupled production deployment architecture:
 - **Frontend**: Hosted on **Vercel** (React 19 + Vite SPA)
-- **Backend**: Hosted on **Render** as a **Native Python Web Service** (FastAPI + Uvicorn)
+- **Backend**: Hosted on **Render** as a **Native Python Web Service** (FastAPI + Uvicorn on Render Free plan)
 - **Database**: **Neon Serverless PostgreSQL** (external relational data)
 - **AI / LLM**: **Google Gemini 2.5 Flash** (`gemini-2.5-flash`)
-- **Vector & Upload Storage**: **ChromaDB** and uploaded PDFs stored on a **Render Persistent Disk** mounted at `/data`
+- **Vector & Upload Storage**: **ChromaDB** and uploaded PDFs stored in application-local directories (`data/chroma_db` and `data/uploads`)
 
 Docker is not required for this deployment.
+
+> [!NOTE]
+> Render Free uses ephemeral local filesystem storage. ChromaDB vectors and uploaded files may be lost after instance restart/redeploy. PostgreSQL data remains in Neon.
 
 ### Architecture in Production
 
@@ -329,11 +332,11 @@ Docker is not required for this deployment.
 │  - VITE_API_URL=<render-backend-url> │     │  └── Embedded AI Engine (MiniLM)     │
 └──────────────────────────────────────┘     └───────────┬──────────────┬───────────┘
                                                          │              │
-                                           Mount: /data  │              │
+                                     Application Local   │              │
                                    ┌─────────────────────┴───┐          │
-                                   │  Render Persistent Disk │          │
-                                   │  ├── /data/chroma_db    │          │
-                                   │  └── /data/uploads      │          │
+                                   │ Ephemeral Local Storage │          │
+                                   │ ├── data/chroma_db      │          │
+                                   │ └── data/uploads        │          │
                                    └─────────────────────────┘          ▼
                                                          ┌──────────────────────────┐
                                                          │ Neon Serverless Postgres │
@@ -357,27 +360,16 @@ Docker is not required for this deployment.
    - **Pre-Deploy Command**: `alembic upgrade head`
    - **Start Command**: `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
    - **Health Check Path**: `/health`
-   - **Plan**: `Starter` (paid plan required for persistent disk)
+   - **Plan**: `Free`
 
-#### Step C: Attach Persistent Disk (Required for `/data`)
-> [!IMPORTANT]
-> The application is configured to store ChromaDB vectors at `/data/chroma_db` and uploaded PDFs at `/data/uploads`.
-> If deploying to an existing Render service, the disk **must be attached manually in the Render Dashboard**:
-> 1. In your Web Service settings, click **Disks**.
-> 2. Click **Add Disk**:
->    - **Name**: `studypilot-data`
->    - **Mount Path**: `/data`
->    - **Size**: `10 GB`
-> 3. Click **Save Changes**. Render will mount `/data` with write permissions.
-
-#### Step D: Backend Environment Variables (Render)
+#### Step C: Backend Environment Variables (Render)
 Under **Environment Variables** in Render:
 - `DATABASE_URL`: Your pooled Neon connection string (`sslmode=require`)
 - `GEMINI_API_KEY`: Your Google AI Studio API key
 - `JWT_SECRET`: Random 32+ character hex string
 - `GEMINI_MODEL`: `gemini-2.5-flash`
-- `CHROMA_PERSIST_DIRECTORY`: `/data/chroma_db`
-- `UPLOAD_DIR`: `/data/uploads`
+- `CHROMA_PERSIST_DIRECTORY`: `data/chroma_db`
+- `UPLOAD_DIR`: `data/uploads`
 - `MAX_UPLOAD_SIZE_MB`: `50`
 - `BACKEND_CORS_ORIGINS`: Comma-separated list including your Vercel domain (e.g. `https://study-pilot-ai-three.vercel.app,http://localhost:5173`)
 

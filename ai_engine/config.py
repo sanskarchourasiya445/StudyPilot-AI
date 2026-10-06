@@ -34,20 +34,43 @@ from pathlib import Path
 # living in a sibling directory).
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+
+def _resolve_storage_dir(env_val: str | None, default_relative: Path) -> Path:
+    """Resolve an environment storage path.
+
+    - If unset, returns the absolute path under PROJECT_ROOT.
+    - If relative, anchors it to PROJECT_ROOT.
+    - If the legacy /data/ mount path was specified but /data is not a writable
+      mount (e.g. on Render Free plan), gracefully falls back to the
+      application-local directory under PROJECT_ROOT.
+    """
+    if not env_val:
+        return default_relative.resolve()
+    posix_val = env_val.replace("\\", "/").strip()
+    if posix_val.startswith("/data/"):
+        sub = posix_val.removeprefix("/data/")
+        if not (os.path.exists("/data") and os.access("/data", os.W_OK)):
+            return (PROJECT_ROOT / "data" / sub).resolve()
+    p = Path(env_val)
+    if not p.is_absolute() and not posix_val.startswith("/"):
+        return (PROJECT_ROOT / p).resolve()
+    return p.resolve()
+
+
 # Where raw source documents (PDFs, TXT files) are dropped for ingestion.
 _docs_env = os.getenv("DOCUMENTS_DIR") or os.getenv("UPLOAD_DIR")
-DOCUMENTS_DIR = Path(_docs_env).resolve() if _docs_env else PROJECT_ROOT / "data" / "documents"
+DOCUMENTS_DIR = _resolve_storage_dir(_docs_env, PROJECT_ROOT / "data" / "documents")
 
 # Where downloaded/converted audio (from YouTube or uploaded video/audio
 # files) is written before transcription. Kept separate from
 # DOCUMENTS_DIR because these are intermediate artifacts, not source
 # documents themselves.
 _audio_env = os.getenv("AUDIO_DOWNLOAD_DIR")
-AUDIO_DOWNLOAD_DIR = Path(_audio_env).resolve() if _audio_env else PROJECT_ROOT / "data" / "audio"
+AUDIO_DOWNLOAD_DIR = _resolve_storage_dir(_audio_env, PROJECT_ROOT / "data" / "audio")
 
 # Where the persisted Chroma collection lives on disk.
 _chroma_env = os.getenv("CHROMA_PERSIST_DIRECTORY")
-VECTOR_DB_DIR = Path(_chroma_env).resolve() if _chroma_env else PROJECT_ROOT / "data" / "chroma_db"
+VECTOR_DB_DIR = _resolve_storage_dir(_chroma_env, PROJECT_ROOT / "data" / "chroma_db")
 
 SUPPORTED_FILE_EXTENSIONS = (".pdf", ".txt")
 
@@ -62,12 +85,10 @@ def ensure_dirs() -> None:
     for directory in (DOCUMENTS_DIR, AUDIO_DOWNLOAD_DIR, VECTOR_DB_DIR):
         try:
             directory.mkdir(parents=True, exist_ok=True)
-        except PermissionError as exc:
-            raise PermissionError(
-                f"[Errno 13] Permission denied creating '{directory}'. "
-                "Repository configuration requires a persistent disk mounted at '/data'. "
-                "Please verify in the Render Dashboard that a Persistent Disk is attached and mounted at '/data'."
-            ) from exc
+        except PermissionError:
+            # Fallback defensively to project-local data directory if custom path has permission issues
+            local_fallback = (PROJECT_ROOT / "data" / directory.name).resolve()
+            local_fallback.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------

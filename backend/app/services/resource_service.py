@@ -4,6 +4,8 @@ from typing import List, Optional
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
+from pathlib import Path
+
 from ai_engine.engine import AIEngine, EngineError, ResourceManagementError
 from backend.app.db.models.resource import Resource
 from backend.app.db.models.user import User
@@ -13,7 +15,26 @@ from backend.app.db.models.quiz import Quiz
 from backend.app.repositories.resource_repository import ResourceRepository
 from backend.app.schemas.resource import ResourceRead, YouTubeIngestRequest
 
-UPLOAD_DIR = os.getenv("UPLOAD_DIR") or os.path.join(os.getcwd(), "data", "uploads")
+# Project root: 3 levels up from backend/app/services (services -> app -> backend -> root)
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _resolve_upload_dir() -> Path:
+    raw_env = os.getenv("UPLOAD_DIR")
+    if not raw_env:
+        return (PROJECT_ROOT / "data" / "uploads").resolve()
+    posix_val = raw_env.replace("\\", "/").strip()
+    if posix_val.startswith("/data/"):
+        sub = posix_val.removeprefix("/data/")
+        if not (os.path.exists("/data") and os.access("/data", os.W_OK)):
+            return (PROJECT_ROOT / "data" / sub).resolve()
+    p = Path(raw_env)
+    if not p.is_absolute() and not posix_val.startswith("/"):
+        return (PROJECT_ROOT / p).resolve()
+    return p.resolve()
+
+
+UPLOAD_DIR = _resolve_upload_dir()
 MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_MB", 50)) * 1024 * 1024
 
 
@@ -87,16 +108,14 @@ class ResourceService:
             limit_mb = MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)
             raise ValueError(f"File size exceeds maximum permitted limit ({limit_mb} MB).")
 
-        user_upload_dir = os.path.join(UPLOAD_DIR, user.id)
+        user_upload_dir = UPLOAD_DIR / user.id
         try:
-            os.makedirs(user_upload_dir, exist_ok=True)
-        except PermissionError as exc:
-            raise PermissionError(
-                f"[Errno 13] Permission denied creating upload directory '{user_upload_dir}'. "
-                "Repository configuration requires a persistent disk mounted at '/data'. "
-                "Please verify in the Render Dashboard that a Persistent Disk is attached and mounted at '/data'."
-            ) from exc
-        file_path = os.path.join(user_upload_dir, filename)
+            user_upload_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            # Fallback defensively to application-local data/uploads if custom path had permission issues
+            user_upload_dir = (PROJECT_ROOT / "data" / "uploads" / user.id).resolve()
+            user_upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = str(user_upload_dir / filename)
 
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(upload_file.file, buffer)

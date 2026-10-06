@@ -9,13 +9,9 @@ services:
     buildCommand: "pip install -r requirements.txt"
     preDeployCommand: "alembic upgrade head"
     startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
-    plan: starter
+    plan: free
     region: oregon
     healthCheckPath: /health
-    disk:
-      name: studypilot-data
-      mountPath: /data
-      sizeGB: 10
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -28,8 +24,8 @@ services:
       - key: BACKEND_CORS_ORIGINS
         value: "http://localhost:5173,http://localhost:3000"
       - key: CHROMA_PERSIST_DIRECTORY
-        value: /data/chroma_db
+        value: data/chroma_db
       - key: UPLOAD_DIR
-        value: /data/uploads
+        value: data/uploads
       - key: MAX_UPLOAD_SIZE_MB
         value: 50
