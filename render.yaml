@@ -6,7 +6,7 @@ services:
   - type: web
     name: studypilot-ai
     runtime: python
-    buildCommand: "cd frontend && npm install && npm run build && cd .. && pip install -r requirements.txt"
+    buildCommand: "pip install -r requirements.txt"
     preDeployCommand: "alembic upgrade head"
     startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
     plan: starter
@@ -25,6 +25,8 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
+      - key: BACKEND_CORS_ORIGINS
+        value: "http://localhost:5173,http://localhost:3000"
       - key: CHROMA_PERSIST_DIRECTORY
         value: /data/chroma_db
       - key: UPLOAD_DIR

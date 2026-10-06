@@ -51,16 +51,16 @@ app = FastAPI(
 # Register Exception Handlers
 setup_exception_handlers(app)
 
-# Set up CORS
-if settings.BACKEND_CORS_ORIGINS:
-    origins = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# Set up CORS (supports localhost dev, configured origins, and Vercel deployments)
+origins = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS] if settings.BACKEND_CORS_ORIGINS else []
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include Routers
 app.include_router(health.router, prefix=settings.API_V1_STR)
