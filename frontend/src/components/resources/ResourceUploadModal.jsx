@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { FileText, Video, UploadCloud, X, Link as LinkIcon, Loader2, AlertCircle } from 'lucide-react';
+import { FileText, Video, UploadCloud, X, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { useUploadPdf, useAddYoutube } from '../../hooks/useResources';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -75,7 +75,7 @@ export function ResourceUploadModal({ isOpen, onClose }) {
       await uploadPdfMutation.mutateAsync(selectedFile);
       setSelectedFile(null);
       onClose();
-    } catch (err) {
+    } catch {
       // Handled by mutation toast & error state
     }
   };
@@ -96,7 +96,7 @@ export function ResourceUploadModal({ isOpen, onClose }) {
       await addYoutubeMutation.mutateAsync(trimmed);
       setYoutubeUrl('');
       onClose();
-    } catch (err) {
+    } catch {
       // Handled by mutation toast
     }
   };

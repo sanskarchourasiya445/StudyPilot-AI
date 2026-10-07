@@ -33,7 +33,7 @@ export function SettingsPage() {
       setSavedSuccess(true);
       addToast('Study preferences saved locally.', 'success');
       setTimeout(() => setSavedSuccess(false), 2000);
-    } catch (err) {
+    } catch {
       addToast('Failed to save preferences.', 'error');
     }
   };
