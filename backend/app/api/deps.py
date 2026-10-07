@@ -1,10 +1,10 @@
-from typing import Generator
+from typing import Generator, TYPE_CHECKING
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from ai_engine.engine import AIEngine
-from backend.app.ai.engine_provider import get_ai_engine
+if TYPE_CHECKING:
+    from ai_engine.engine import AIEngine
 from backend.app.core.config import settings
 from backend.app.core.security import decode_access_token
 from backend.app.db.models.user import User
@@ -23,8 +23,10 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def get_engine() -> AIEngine:
-    """Dependency that provides the singleton AIEngine instance."""
+def get_engine() -> "AIEngine":
+    """Dependency that provides the singleton AIEngine instance on demand."""
+    from backend.app.ai.engine_provider import get_ai_engine
+
     return get_ai_engine()
 
 

@@ -33,13 +33,9 @@ from ai_engine.youtube.extractor import (
     get_video_metadata,
 )
 from ai_engine.youtube.transcriber import transcribe_chunks
+from ai_engine.utils.exceptions import YouTubeLoadError
 
 logger = logging.getLogger(__name__)
-
-
-class YouTubeLoadError(LoaderError):
-    """Raised when a YouTube video's transcript cannot be obtained by
-    EITHER strategy (no captions AND Whisper fallback also failed)."""
 
 
 class YouTubeLoader(BaseLoader):

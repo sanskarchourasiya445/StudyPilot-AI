@@ -1,14 +1,24 @@
+from __future__ import annotations
+
 import logging
-from typing import Optional
-from ai_engine.engine import AIEngine
+from typing import Optional, TYPE_CHECKING
 from backend.app.core.config import settings
+
+if TYPE_CHECKING:
+    from ai_engine.engine import AIEngine
 
 logger = logging.getLogger(__name__)
 
-_ai_engine_instance: Optional[AIEngine] = None
+_ai_engine_instance: Optional["AIEngine"] = None
 
 
-def get_ai_engine() -> AIEngine:
+def get_existing_ai_engine() -> Optional["AIEngine"]:
+    """Return the currently initialized AIEngine instance if already active, without initializing."""
+    global _ai_engine_instance
+    return _ai_engine_instance
+
+
+def get_ai_engine() -> "AIEngine":
     """Return the application-wide singleton AIEngine instance.
 
     Reuses the existing initialized instance rather than re-creating/re-initializing
@@ -17,6 +27,8 @@ def get_ai_engine() -> AIEngine:
     global _ai_engine_instance
     if _ai_engine_instance is None:
         logger.info("Initializing singleton AIEngine instance...")
+        from ai_engine.engine import AIEngine
+
         api_key = settings.GEMINI_API_KEY or None
         engine = AIEngine(gemini_api_key=api_key)
         engine.initialize()

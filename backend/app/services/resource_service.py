@@ -1,12 +1,18 @@
+from __future__ import annotations
+
+import logging
 import os
 import shutil
-from typing import List, Optional
+import threading
+from pathlib import Path
+from typing import List, Optional, TYPE_CHECKING
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from pathlib import Path
+if TYPE_CHECKING:
+    from ai_engine.engine import AIEngine
 
-from ai_engine.engine import AIEngine, EngineError, ResourceManagementError
+from ai_engine.utils.exceptions import EngineError, ResourceManagementError
 from backend.app.db.models.resource import Resource
 from backend.app.db.models.user import User
 from backend.app.db.models.summary import Summary
@@ -14,6 +20,21 @@ from backend.app.db.models.notes import Notes
 from backend.app.db.models.quiz import Quiz
 from backend.app.repositories.resource_repository import ResourceRepository
 from backend.app.schemas.resource import ResourceRead, YouTubeIngestRequest
+
+logger = logging.getLogger(__name__)
+
+# Concurrency serialization lock for CPU/memory-intensive ingestion operations
+_ingestion_lock = threading.Lock()
+INGESTION_LOCK_TIMEOUT_SECONDS = 180.0
+
+
+class IngestionConcurrencyError(EngineError):
+    """Raised when an ingestion task cannot acquire the concurrency lock within the timeout."""
+
+
+class ResourceNotFoundError(ResourceManagementError):
+    """Raised when a requested resource does not exist."""
+
 
 # Project root: 3 levels up from backend/app/services (services -> app -> backend -> root)
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -108,47 +129,56 @@ class ResourceService:
             limit_mb = MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)
             raise ValueError(f"File size exceeds maximum permitted limit ({limit_mb} MB).")
 
-        user_upload_dir = UPLOAD_DIR / user.id
-        try:
-            user_upload_dir.mkdir(parents=True, exist_ok=True)
-        except PermissionError:
-            # Fallback defensively to application-local data/uploads if custom path had permission issues
-            user_upload_dir = (PROJECT_ROOT / "data" / "uploads" / user.id).resolve()
-            user_upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = str(user_upload_dir / filename)
-
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(upload_file.file, buffer)
-
-        try:
-            file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
-            ingestion_res = engine.ingest(file_path, user_id=user.id)
-            meta = {
-                "original_filename": filename,
-                "pages": ingestion_res.pages_or_segments,
-                "page_count": ingestion_res.pages_or_segments,
-                "chunks": ingestion_res.chunks_created,
-                "chunk_count": ingestion_res.chunks_created,
-                "file_size": file_size,
-            }
-            rec = self._resource_repo.create(
-                db=db,
-                user_id=user.id,
-                resource_id=ingestion_res.resource_id,
-                source=file_path,
-                source_type="pdf",
-                title=filename,
-                status="ready",
-                metadata=meta,
+        acquired = _ingestion_lock.acquire(timeout=INGESTION_LOCK_TIMEOUT_SECONDS)
+        if not acquired:
+            raise IngestionConcurrencyError(
+                "The server is currently processing another resource ingestion. Please try again shortly."
             )
-            return self._enrich_resource(db, rec)
-        except Exception as exc:
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except Exception:
-                    pass
-            raise exc
+
+        try:
+            user_upload_dir = UPLOAD_DIR / user.id
+            try:
+                user_upload_dir.mkdir(parents=True, exist_ok=True)
+            except PermissionError:
+                # Fallback defensively to application-local data/uploads if custom path had permission issues
+                user_upload_dir = (PROJECT_ROOT / "data" / "uploads" / user.id).resolve()
+                user_upload_dir.mkdir(parents=True, exist_ok=True)
+            file_path = str(user_upload_dir / filename)
+
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(upload_file.file, buffer)
+
+            try:
+                file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+                ingestion_res = engine.ingest(file_path, user_id=user.id)
+                meta = {
+                    "original_filename": filename,
+                    "pages": ingestion_res.pages_or_segments,
+                    "page_count": ingestion_res.pages_or_segments,
+                    "chunks": ingestion_res.chunks_created,
+                    "chunk_count": ingestion_res.chunks_created,
+                    "file_size": file_size,
+                }
+                rec = self._resource_repo.create(
+                    db=db,
+                    user_id=user.id,
+                    resource_id=ingestion_res.resource_id,
+                    source=file_path,
+                    source_type="pdf",
+                    title=filename,
+                    status="ready",
+                    metadata=meta,
+                )
+                return self._enrich_resource(db, rec)
+            except Exception as exc:
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                raise exc
+        finally:
+            _ingestion_lock.release()
 
     def ingest_youtube(
         self,
@@ -157,25 +187,34 @@ class ResourceService:
         user: User,
         request: YouTubeIngestRequest,
     ) -> ResourceRead:
-        ingestion_res = engine.ingest(request.url, user_id=user.id)
-        meta = {
-            "url": request.url,
-            "segments": ingestion_res.pages_or_segments,
-            "page_count": ingestion_res.pages_or_segments,
-            "chunks": ingestion_res.chunks_created,
-            "chunk_count": ingestion_res.chunks_created,
-        }
-        rec = self._resource_repo.create(
-            db=db,
-            user_id=user.id,
-            resource_id=ingestion_res.resource_id,
-            source=request.url,
-            source_type="youtube",
-            title=request.title or request.url,
-            status="ready",
-            metadata=meta,
-        )
-        return self._enrich_resource(db, rec)
+        acquired = _ingestion_lock.acquire(timeout=INGESTION_LOCK_TIMEOUT_SECONDS)
+        if not acquired:
+            raise IngestionConcurrencyError(
+                "The server is currently processing another resource ingestion. Please try again shortly."
+            )
+
+        try:
+            ingestion_res = engine.ingest(request.url, user_id=user.id)
+            meta = {
+                "url": request.url,
+                "segments": ingestion_res.pages_or_segments,
+                "page_count": ingestion_res.pages_or_segments,
+                "chunks": ingestion_res.chunks_created,
+                "chunk_count": ingestion_res.chunks_created,
+            }
+            rec = self._resource_repo.create(
+                db=db,
+                user_id=user.id,
+                resource_id=ingestion_res.resource_id,
+                source=request.url,
+                source_type="youtube",
+                title=request.title or request.url,
+                status="ready",
+                metadata=meta,
+            )
+            return self._enrich_resource(db, rec)
+        finally:
+            _ingestion_lock.release()
 
     def list_resources(self, db: Session, user: User) -> List[ResourceRead]:
         resources = self._resource_repo.list_by_user(db, user.id)

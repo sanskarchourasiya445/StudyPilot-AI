@@ -55,7 +55,13 @@ from ai_engine.services.chat_service import ChatResult, ChatService, ChatService
 from ai_engine.services.notes_service import NotesService, NotesServiceError
 from ai_engine.services.quiz_service import QuizQuestion, QuizService, QuizServiceError
 from ai_engine.services.summary_service import SummaryService, SummaryServiceError
-from ai_engine.utils.exceptions import ConfigurationError, EngineNotInitializedError
+from ai_engine.utils.exceptions import (
+    ConfigurationError,
+    EngineError,
+    EngineNotInitializedError,
+    ResourceManagementError,
+    SearchError,
+)
 from ai_engine.utils.helpers import new_resource_id
 from ai_engine.utils.logger import configure_logging
 from ai_engine.utils.summary_cache import SummaryCache
@@ -80,28 +86,6 @@ from ai_engine.vectorstore.chroma import (
 from ai_engine.vectorstore.retriever import RetrieverConfigError, build_retriever
 
 logger = logging.getLogger(__name__)
-
-
-class EngineError(Exception):
-    """Top-level exception for ingestion/query failures, wrapping
-    lower-level exceptions (`LoaderError`, `VectorStoreError`,
-    `ChatServiceError`, etc.) so any consumer of `AIEngine` has exactly
-    one exception type to catch at the boundary, regardless of which
-    internal layer actually failed."""
-
-
-class ResourceManagementError(EngineError):
-    """(v1.1) Raised when a resource-level operation - `delete_resource`,
-    `get_resource`, `list_resources`, `stats`, `workspace_stats` - fails,
-    including when the requested `resource_id` does not exist. A
-    subclass of `EngineError`, so existing code that catches
-    `EngineError` broadly still catches this without any change."""
-
-
-class SearchError(EngineError):
-    """(v1.1) Raised when `search()` (raw retrieval without an LLM call)
-    fails. A subclass of `EngineError` for the same reason as
-    `ResourceManagementError` above."""
 
 
 @dataclass

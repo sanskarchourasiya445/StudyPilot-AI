@@ -1,14 +1,21 @@
-from typing import List
+from __future__ import annotations
+
+from typing import List, TYPE_CHECKING
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from ai_engine.engine import AIEngine, EngineError
-from ai_engine.loaders.loader_factory import UnsupportedSourceError
-from ai_engine.loaders.youtube_loader import YouTubeLoadError
+if TYPE_CHECKING:
+    from ai_engine.engine import AIEngine
+
+from ai_engine.utils.exceptions import EngineError, UnsupportedSourceError, YouTubeLoadError
 from backend.app.api.deps import get_current_user, get_db, get_engine
 from backend.app.db.models.user import User
 from backend.app.schemas.resource import ResourceRead, YouTubeIngestRequest
-from backend.app.services.resource_service import ResourceNotFoundError, ResourceService
+from backend.app.services.resource_service import (
+    IngestionConcurrencyError,
+    ResourceNotFoundError,
+    ResourceService,
+)
 
 router = APIRouter(prefix="/resources", tags=["Resources"])
 resource_service = ResourceService()
@@ -32,6 +39,13 @@ def upload_pdf(
         return resource
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except IngestionConcurrencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+        ) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -60,6 +74,11 @@ def ingest_youtube(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid YouTube URL: {exc}",
         ) from exc
+    except IngestionConcurrencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+        ) from exc
     except YouTubeLoadError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -81,6 +100,8 @@ def ingest_youtube(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to ingest YouTube video: {exc}",
         ) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

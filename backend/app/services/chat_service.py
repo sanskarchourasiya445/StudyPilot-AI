@@ -1,7 +1,10 @@
-from typing import List, Optional
+from __future__ import annotations
+
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy.orm import Session
 
-from ai_engine.engine import AIEngine
+if TYPE_CHECKING:
+    from ai_engine.engine import AIEngine
 from backend.app.db.models.user import User
 from backend.app.repositories.conversation_repository import ConversationRepository
 from backend.app.repositories.resource_repository import ResourceRepository

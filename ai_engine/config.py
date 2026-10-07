@@ -24,6 +24,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ---------------------------------------------------------------------
 # Paths
@@ -142,7 +145,7 @@ LAMBDA_MULT = 0.5  # 1.0 = pure relevance, 0.0 = pure diversity
 # ---------------------------------------------------------------------
 # LLM (Gemini)
 # ---------------------------------------------------------------------
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GEMINI_DEFAULT_TEMPERATURE = 0.3
 
 # ---------------------------------------------------------------------

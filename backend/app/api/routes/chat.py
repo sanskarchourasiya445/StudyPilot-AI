@@ -1,7 +1,13 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ai_engine.engine import AIEngine, EngineError
+if TYPE_CHECKING:
+    from ai_engine.engine import AIEngine
+
+from ai_engine.utils.exceptions import EngineError
 from backend.app.api.deps import get_current_user, get_db, get_engine
 from backend.app.db.models.user import User
 from backend.app.schemas.chat import ChatRequest, ChatResponse

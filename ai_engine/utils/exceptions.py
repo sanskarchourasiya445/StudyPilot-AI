@@ -51,3 +51,29 @@ class EngineNotInitializedError(AIEngineError):
     been run. Initialization loads the embedding model and opens the
     vector store - both required before any engine method can do
     anything useful."""
+
+
+class EngineError(AIEngineError):
+    """Top-level exception for ingestion/query failures, wrapping
+    lower-level exceptions so any consumer of `AIEngine` has exactly
+    one exception type to catch at the boundary."""
+
+
+class ResourceManagementError(EngineError):
+    """Raised when a resource-level operation (delete, get, list, stats) fails."""
+
+
+class SearchError(EngineError):
+    """Raised when search (raw retrieval) fails."""
+
+
+class LoaderError(AIEngineError):
+    """Base exception for any failure while loading a source into Documents."""
+
+
+class UnsupportedSourceError(LoaderError):
+    """Raised when no registered loader can handle the given source."""
+
+
+class YouTubeLoadError(LoaderError):
+    """Raised when a YouTube video's transcript cannot be obtained."""

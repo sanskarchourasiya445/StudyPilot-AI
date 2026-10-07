@@ -18,16 +18,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
-import whisper
+if TYPE_CHECKING:
+    import whisper
 
 from ai_engine.config import WHISPER_MODEL, WHISPER_TASK
 from ai_engine.loaders.base_loader import LoaderError
 
 logger = logging.getLogger(__name__)
 
-_model: Optional["whisper.Whisper"] = None
+_model: Optional[Any] = None
 
 
 class TranscriptionError(LoaderError):
@@ -35,7 +36,7 @@ class TranscriptionError(LoaderError):
     transcribe a given audio chunk."""
 
 
-def _load_model() -> "whisper.Whisper":
+def _load_model() -> Any:
     """Load (or return the already-loaded) Whisper model.
 
     Raises:
@@ -45,6 +46,8 @@ def _load_model() -> "whisper.Whisper":
     global _model
     if _model is None:
         try:
+            import whisper
+
             logger.info("Loading Whisper model '%s'...", WHISPER_MODEL)
             _model = whisper.load_model(WHISPER_MODEL)
             logger.info("Whisper model '%s' loaded.", WHISPER_MODEL)

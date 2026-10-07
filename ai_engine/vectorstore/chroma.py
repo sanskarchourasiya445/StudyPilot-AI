@@ -83,8 +83,17 @@ def get_vector_store(embeddings: Embeddings) -> Chroma:
         raise VectorStoreError(f"Failed to open vector store: {exc}") from exc
 
 
-def add_documents(vector_store: Chroma, documents: List[Document]) -> List[str]:
-    """Add new chunks to an already-open vector store, persisting them.
+DEFAULT_CHROMA_BATCH_SIZE = 16
+
+
+def add_documents(
+    vector_store: Chroma,
+    documents: List[Document],
+    batch_size: int = DEFAULT_CHROMA_BATCH_SIZE,
+) -> List[str]:
+    """Add new chunks to an already-open vector store in bounded batches, persisting them.
+
+    Batching prevents high memory spikes in memory-constrained environments (e.g. Render Free 512MB).
 
     This is the incremental-ingestion entry point `AIEngine.ingest()`
     calls after loading/cleaning/chunking a new source - it never
@@ -103,10 +112,25 @@ def add_documents(vector_store: Chroma, documents: List[Document]) -> List[str]:
     if not documents:
         raise VectorStoreError("Cannot add zero documents to the vector store.")
 
+    total_docs = len(documents)
+    all_ids: List[str] = []
+    effective_batch_size = max(1, batch_size)
+
     try:
-        ids = vector_store.add_documents(documents)
-        logger.info("Added %d chunk(s) to the vector store.", len(documents))
-        return ids
+        for i in range(0, total_docs, effective_batch_size):
+            batch = documents[i : i + effective_batch_size]
+            batch_ids = vector_store.add_documents(batch)
+            all_ids.extend(batch_ids)
+            logger.debug(
+                "Added batch %d-%d of %d chunks to vector store.",
+                i + 1,
+                min(i + effective_batch_size, total_docs),
+                total_docs,
+            )
+        logger.info("Added %d chunk(s) in total to the vector store.", total_docs)
+        import gc
+        gc.collect()
+        return all_ids
     except Exception as exc:  # noqa: BLE001
         raise VectorStoreError(f"Failed to add documents to vector store: {exc}") from exc
 

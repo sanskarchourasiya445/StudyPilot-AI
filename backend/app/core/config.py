@@ -63,7 +63,7 @@ class Settings(BaseSettings):
 
     # AI Engine
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
 
     # Storage Paths & Limits
     CHROMA_PERSIST_DIRECTORY: str = "data/chroma_db"

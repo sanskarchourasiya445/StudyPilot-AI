@@ -25,6 +25,7 @@ from ai_engine.loaders.base_loader import BaseLoader, LoaderError
 from ai_engine.loaders.pdf_loader import PDFLoader
 from ai_engine.loaders.txt_loader import TXTLoader
 from ai_engine.loaders.youtube_loader import YouTubeLoader
+from ai_engine.utils.exceptions import UnsupportedSourceError
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +35,6 @@ logger = logging.getLogger(__name__)
 # create ambiguity today, but YouTubeLoader is listed first since URL
 # checks are cheaper than filesystem stat calls.
 _LOADER_REGISTRY: List[Type[BaseLoader]] = [YouTubeLoader, PDFLoader, TXTLoader]
-
-
-class UnsupportedSourceError(LoaderError):
-    """Raised when no registered loader can handle the given source."""
 
 
 def get_loader(source: str) -> BaseLoader:

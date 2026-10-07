@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from ai_engine.engine import (
+from ai_engine.utils.exceptions import (
     EngineError,
     ResourceManagementError,
     SearchError,

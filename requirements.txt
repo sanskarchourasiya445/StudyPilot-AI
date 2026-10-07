@@ -1,4 +1,6 @@
 # ── StudyPilot AI Engine — requirements.txt ───────────────────────────────────
+# Enforce CPU-only PyTorch build on Render Free (saves ~2.5 GB disk and prevents loading NVIDIA/CUDA packages)
+--extra-index-url https://download.pytorch.org/whl/cpu
 # Python >= 3.10 recommended
 
 # ── Core orchestration (LangChain) ────────────────────────────────────────────

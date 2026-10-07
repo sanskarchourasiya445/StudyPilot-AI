@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from sqlalchemy.orm import Session
 
 from ai_engine.config import get_summary_config_hash
-from ai_engine.engine import AIEngine
+if TYPE_CHECKING:
+    from ai_engine.engine import AIEngine
 from backend.app.db.models.user import User
 from backend.app.repositories.resource_repository import ResourceRepository
 from backend.app.repositories.study_repository import StudyRepository

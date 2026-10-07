@@ -30,21 +30,9 @@ from typing import List
 
 from langchain_core.documents import Document
 
+from ai_engine.utils.exceptions import LoaderError
+
 logger = logging.getLogger(__name__)
-
-
-class LoaderError(Exception):
-    """Base exception for any failure while loading a source into
-    Documents (file not found, unreadable/corrupted content, network
-    failure, unsupported format, etc.).
-
-    Concrete loaders should raise a more specific subclass where it adds
-    real value (see `PDFLoadError`, `YouTubeLoadError`, `TXTLoadError` in
-    their respective files), but every subclass ultimately IS a
-    `LoaderError` - so callers (e.g. `loader_factory.py`, `engine.py`)
-    only ever need to catch this one type to handle "loading failed",
-    regardless of which source type was being loaded.
-    """
 
 
 class BaseLoader(ABC):

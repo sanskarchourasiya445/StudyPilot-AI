@@ -20,7 +20,7 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.8-flash
       - key: BACKEND_CORS_ORIGINS
         value: "http://localhost:5173,http://localhost:3000"
       - key: CHROMA_PERSIST_DIRECTORY
@@ -29,3 +29,9 @@ services:
         value: data/uploads
       - key: MAX_UPLOAD_SIZE_MB
         value: 50
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+      - key: TOKENIZERS_PARALLELISM
+        value: "false"
